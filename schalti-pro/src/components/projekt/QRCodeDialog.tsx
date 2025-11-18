@@ -30,10 +30,11 @@ export function QRCodeDialog({
 }: QRCodeDialogProps) {
   const qrRef = useRef<HTMLDivElement>(null);
 
-  // Erstelle die URL für das Projekt
+  // Erstelle die URL für das Projekt (verwende Schaltschranknummer falls vorhanden)
+  const projektIdentifier = schaltschrankNummer || projektId;
   const projektUrl = typeof window !== "undefined" 
-    ? `${window.location.origin}/projekte/${projektId}`
-    : `http://localhost:3000/projekte/${projektId}`;
+    ? `${window.location.origin}/projekte/${projektIdentifier}`
+    : `http://localhost:3000/projekte/${projektIdentifier}`;
 
   const handlePrint = () => {
     if (!qrRef.current) return;

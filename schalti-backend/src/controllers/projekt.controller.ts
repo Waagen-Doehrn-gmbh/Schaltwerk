@@ -44,7 +44,14 @@ export class ProjektController {
   static async getById(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const projekt = await ProjektService.getProjektById(id);
+      
+      // Versuche zuerst nach Schaltschranknummer zu suchen (für URL-Routing)
+      let projekt = await ProjektService.getProjektBySchaltschrankNummer(id);
+      
+      // Falls nicht gefunden, versuche es als UUID
+      if (!projekt) {
+        projekt = await ProjektService.getProjektById(id);
+      }
 
       if (!projekt) {
         res.status(404).json({ error: "Projekt nicht gefunden" });

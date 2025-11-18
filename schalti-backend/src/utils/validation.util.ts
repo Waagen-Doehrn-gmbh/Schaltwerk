@@ -11,7 +11,7 @@ export const registerSchema = z.object({
   password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
   name: z.string().min(2, "Name muss mindestens 2 Zeichen lang sein"),
   initialen: z.string().min(2).max(10),
-  rolle: z.enum(["admin", "monteur", "technische_abnahme", "endabnahme"]),
+  rolle: z.enum(["admin", "analyse", "endabnahme", "technische_abnahme", "monteur"]),
   berechtigungen: z.array(z.enum(["abnahme", "endabnahme"])).optional(),
 });
 
@@ -20,7 +20,7 @@ export const createProjektSchema = z.object({
   name: z.string().min(1, "Name ist erforderlich"),
   standort: z.string().min(1, "Standort ist erforderlich"),
   status: z.enum(["planung", "in_bearbeitung", "abgeschlossen"]),
-  schaltschrankNummer: z.string().optional(),
+  schaltschrankNummer: z.string().min(1, "Schaltschranknummer ist erforderlich"),
   komponentenIds: z.array(z.string().uuid()).optional(),
 });
 
@@ -80,6 +80,7 @@ export const updateChecklisteSchema = createChecklisteSchema.partial();
 export const createAufgabeSchema = z.object({
   name: z.string().min(1, "Name ist erforderlich"),
   checklisteId: z.string().uuid().optional(),
+  erforderlicheRolle: z.enum(["admin", "analyse", "endabnahme", "technische_abnahme", "monteur"]).optional(),
 });
 
 export const updateAufgabeSchema = createAufgabeSchema.partial();
@@ -90,7 +91,7 @@ export const createUserSchema = z.object({
   password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
   name: z.string().min(2, "Name muss mindestens 2 Zeichen lang sein"),
   initialen: z.string().min(2, "Initialen müssen mindestens 2 Zeichen lang sein").max(10, "Initialen dürfen maximal 10 Zeichen lang sein"),
-  rolle: z.enum(["admin", "monteur", "technische_abnahme", "endabnahme"]),
+  rolle: z.enum(["admin", "analyse", "endabnahme", "technische_abnahme", "monteur"]),
   berechtigungen: z.array(z.enum(["abnahme", "endabnahme"])).optional(),
   avatarUrl: z.string().url().optional().or(z.literal("")),
 });

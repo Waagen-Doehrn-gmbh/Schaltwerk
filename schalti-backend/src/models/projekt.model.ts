@@ -24,7 +24,7 @@ export interface CreateProjektInput {
   name: string;
   standort: string;
   status: "planung" | "in_bearbeitung" | "abgeschlossen";
-  schaltschrankNummer?: string;
+  schaltschrankNummer: string;
   komponentenIds?: string[];
 }
 
@@ -48,6 +48,24 @@ export class ProjektModel {
   static async findById(id: string): Promise<Projekt | null> {
     const result = await pool.query("SELECT * FROM projekte WHERE id = $1", [
       id,
+    ]);
+    if (!result.rows[0]) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      name: row.name,
+      standort: row.standort,
+      status: row.status,
+      schaltschrankNummer: row.schaltschrank_nummer,
+      komponentenIds: row.komponenten_ids || [],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  static async findBySchaltschrankNummer(schaltschrankNummer: string): Promise<Projekt | null> {
+    const result = await pool.query("SELECT * FROM projekte WHERE schaltschrank_nummer = $1", [
+      schaltschrankNummer,
     ]);
     if (!result.rows[0]) return null;
     const row = result.rows[0];
@@ -91,7 +109,7 @@ export class ProjektModel {
         input.name, 
         input.standort, 
         input.status, 
-        input.schaltschrankNummer || null,
+        input.schaltschrankNummer,
         input.komponentenIds || []
       ]
     );

@@ -17,7 +17,7 @@ export function ProjectCard({ projekt }: ProjectCardProps) {
     : 0;
 
   return (
-    <Link href={`/projekte/${projekt.id}`}>
+    <Link href={`/projekte/${projekt.schaltschrankNummer || projekt.id}`}>
       <Card className="p-4 md:p-4 lg:p-4 xl:p-6 hover:shadow-md transition-all duration-200 hover:scale-[1.02] cursor-pointer">
         <div className="mb-3 md:mb-3 lg:mb-3 xl:mb-4">
           {/* Header mit Titel und Badge - Badge rechts auf Desktop, unter Titel auf Tablet */}

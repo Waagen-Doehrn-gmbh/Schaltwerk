@@ -45,7 +45,7 @@ const projektSchema = z.object({
   name: z.string().min(1, "Projektname ist erforderlich"),
   standort: z.string().min(1, "Standort ist erforderlich"),
   status: z.enum(["planung", "in_bearbeitung", "abgeschlossen"]),
-  schaltschrankNummer: z.string().optional(),
+  schaltschrankNummer: z.string().min(1, "Schaltschranknummer ist erforderlich"),
   komponentenIds: z.array(z.string()),
 });
 
@@ -122,7 +122,7 @@ export function ProjektVerwaltung() {
             name: data.name,
             standort: data.standort,
             status: data.status,
-            schaltschrankNummer: data.schaltschrankNummer || undefined,
+            schaltschrankNummer: data.schaltschrankNummer,
             komponentenIds: data.komponentenIds,
           },
         });
@@ -131,7 +131,7 @@ export function ProjektVerwaltung() {
           name: data.name,
           standort: data.standort,
           status: "planung",
-          schaltschrankNummer: data.schaltschrankNummer || undefined,
+          schaltschrankNummer: data.schaltschrankNummer,
           komponentenIds: data.komponentenIds,
         });
         
@@ -317,12 +317,12 @@ export function ProjektVerwaltung() {
                     </p>
                   </div>
                 )}
-                <FormField
-                  control={form.control}
-                  name="schaltschrankNummer"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Schaltschranknummer</FormLabel>
+                    <FormField
+                      control={form.control}
+                      name="schaltschrankNummer"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Schaltschranknummer *</FormLabel>
                       <FormControl>
                         <Input
                           {...field}

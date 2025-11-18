@@ -10,6 +10,12 @@ export class ProjektService {
     return ProjektModel.getWithStats(id);
   }
 
+  static async getProjektBySchaltschrankNummer(schaltschrankNummer: string): Promise<ProjektWithStats | null> {
+    const projekt = await ProjektModel.findBySchaltschrankNummer(schaltschrankNummer);
+    if (!projekt) return null;
+    return ProjektModel.getWithStats(projekt.id);
+  }
+
   static async getProjekteByStatus(
     status: "planung" | "in_bearbeitung" | "abgeschlossen"
   ): Promise<Projekt[]> {
