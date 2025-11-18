@@ -16,7 +16,19 @@ export class AuthController {
       console.log("Attempting login for username:", username);
       
       const result = await AuthService.login(username, password);
-      res.json(result);
+      
+      // Set JWT in httpOnly cookie
+      const isProduction = process.env.NODE_ENV === "production";
+      res.cookie("auth_token", result.token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: "/",
+      });
+      
+      // Return user data (without token in response body)
+      res.json({ user: result.user });
     } catch (error: any) {
       console.error("Login error:", error.message);
       if (error instanceof AppError) {
@@ -31,13 +43,40 @@ export class AuthController {
     try {
       const data = registerSchema.parse(req.body);
       const result = await AuthService.register(data);
-      res.status(201).json(result);
+      
+      // Set JWT in httpOnly cookie
+      const isProduction = process.env.NODE_ENV === "production";
+      res.cookie("auth_token", result.token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: "/",
+      });
+      
+      // Return user data (without token in response body)
+      res.status(201).json({ user: result.user });
     } catch (error: any) {
       if (error instanceof AppError) {
         res.status(error.statusCode).json({ error: error.message });
         return;
       }
       res.status(400).json({ error: error.message || "Registrierung fehlgeschlagen" });
+    }
+  }
+  
+  static async logout(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      // Clear the auth cookie
+      res.clearCookie("auth_token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+      });
+      res.status(200).json({ message: "Erfolgreich abgemeldet" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Fehler beim Abmelden" });
     }
   }
 

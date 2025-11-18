@@ -1,5 +1,6 @@
 import express, { Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { config } from "./config/env";
 import { errorMiddleware } from "./middleware/error.middleware";
 
@@ -20,6 +21,7 @@ app.use(cors({
   origin: config.cors.origin,
   credentials: true,
 }));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

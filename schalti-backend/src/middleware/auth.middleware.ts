@@ -16,13 +16,21 @@ export async function authMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // Try to get token from cookie first, then fallback to Authorization header
+    let token: string | undefined = req.cookies?.auth_token;
+    
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    }
+    
+    if (!token) {
       res.status(401).json({ error: "Kein Token bereitgestellt" });
       return;
     }
 
-    const token = authHeader.substring(7);
     const payload = verifyToken(token);
 
     const user = await UserModel.findById(payload.userId);
