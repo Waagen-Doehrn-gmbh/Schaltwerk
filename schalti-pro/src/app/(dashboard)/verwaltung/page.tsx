@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,35 +10,18 @@ import { KomponentenVerwaltung } from "@/components/verwaltung/KomponentenVerwal
 import { AufgabenVerwaltung } from "@/components/verwaltung/AufgabenVerwaltung";
 import { ChecklistenVerwaltung } from "@/components/verwaltung/ChecklistenVerwaltung";
 import { BenutzerVerwaltung } from "@/components/verwaltung/BenutzerVerwaltung";
-import { authApi } from "@/lib/api";
+import { useMe } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
-import type { User } from "@/types";
 
 export default function VerwaltungPage() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: currentUser, isLoading } = useMe();
 
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const user = await authApi.getMe() as User;
-        setCurrentUser(user);
-        
-        // Zugriffskontrolle: Nur Admins dürfen diese Seite sehen
-        if (user.rolle !== "admin") {
-          router.push("/");
-        }
-      } catch (error) {
-        console.error("Error loading user:", error);
-        router.push("/login");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadUser();
-  }, [router]);
+    if (currentUser && currentUser.rolle !== "admin") {
+      router.push("/");
+    }
+  }, [currentUser, router]);
 
   // Wenn kein Admin, zeige nichts
   if (isLoading) {
