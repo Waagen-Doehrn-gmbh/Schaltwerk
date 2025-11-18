@@ -112,7 +112,6 @@ Nach dem ersten Setup können Sie sich mit folgenden Test-Benutzern anmelden:
 | E-Mail | Passwort | Rolle |
 |--------|----------|-------|
 | stefan.haering@schalti.de | password123 | Admin |
-| jamie.szymiczek@schalti.de | password123 | Technische Abnahme |
 | michael.weber@schalti.de | password123 | Technische Abnahme |
 | thomas.mueller@schalti.de | password123 | Endabnahme |
 | anna.schmidt@schalti.de | password123 | Monteur |
