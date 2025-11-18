@@ -1,49 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ProjectCard } from "@/components/projekt/ProjectCard";
-import { projektApi } from "@/lib/api";
-import type { ProjektStatus, Projekt } from "@/types";
+import { useProjekte } from "@/lib/hooks";
+import type { ProjektStatus } from "@/types";
 import { cn } from "@/lib/utils";
 
 export default function ProjektePage() {
-  const [projekte, setProjekte] = useState<Projekt[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: projekte = [], isLoading, error: projekteError } = useProjekte();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProjektStatus | "alle">("alle");
 
-  useEffect(() => {
-    const loadProjekte = async () => {
-      try {
-        setIsLoading(true);
-        const data = await projektApi.getAll();
-        const transformed = data.map((p: any) => ({
-          ...p,
-          createdAt: new Date(p.created_at || p.createdAt),
-          stats: p.stats || {
-            stunden: 0,
-            eintraege: 0,
-            komponenten: 0,
-            gesamtKomponenten: 0,
-          },
-          schaltschrankNummer: p.schaltschrank_nummer || p.schaltschrankNummer,
-          komponentenIds: p.komponenten_ids || p.komponentenIds || [],
-        }));
-        setProjekte(transformed);
-      } catch (err: any) {
-        setError(err.message || "Fehler beim Laden der Projekte");
-        console.error("Error loading projects:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadProjekte();
-  }, []);
+  const error = projekteError ? (projekteError as Error).message : null;
 
   const filteredProjekte = projekte.filter((projekt) => {
     const matchesSearch =

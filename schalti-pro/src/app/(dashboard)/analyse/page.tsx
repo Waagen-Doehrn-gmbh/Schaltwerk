@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { BarChart3 } from "lucide-react";
 import { AnalyseFilter } from "@/components/analyse/AnalyseFilter";
 import { DauerChart } from "@/components/analyse/DauerChart";
@@ -9,8 +9,7 @@ import { ZeitverlaufChart } from "@/components/analyse/ZeitverlaufChart";
 import { StatusChart } from "@/components/analyse/StatusChart";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { projektApi, protokollApi, komponenteApi } from "@/lib/api";
-import type { Projekt, Arbeitsprotokoll, Komponente } from "@/types";
+import { useProjekte, useProtokolle, useKomponenten } from "@/lib/hooks";
 import type { ProjektStatus } from "@/types";
 import { formatStunden } from "@/lib/utils";
 import { Clock, TrendingUp, Target, Calendar } from "lucide-react";
@@ -44,149 +43,120 @@ export default function AnalysePage() {
     datumBis?: Date;
   }>({});
 
-  const [analyseDaten, setAnalyseDaten] = useState<AnalyseDaten[]>([]);
-  const [zeitverlaufDaten, setZeitverlaufDaten] = useState<ZeitverlaufDaten[]>([]);
-  const [statusVerteilung, setStatusVerteilung] = useState<StatusVerteilung[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: projekte = [], isLoading: projekteLoading, error: projekteError } = useProjekte();
+  const { data: protokolle = [], isLoading: protokolleLoading } = useProtokolle();
+  const { data: komponenten = [], isLoading: komponentenLoading } = useKomponenten();
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const [projekteData, protokolleData, komponentenData] = await Promise.all([
-          projektApi.getAll(),
-          protokollApi.getAll(),
-          komponenteApi.getAll(),
-        ]);
+  const isLoading = projekteLoading || protokolleLoading || komponentenLoading;
+  const error = projekteError ? (projekteError as Error).message : null;
 
-        // Transformiere Backend-Daten
-        const projekte = projekteData.map((p: any) => ({
-          ...p,
-          createdAt: new Date(p.created_at || p.createdAt),
-          stats: p.stats || {
-            stunden: 0,
-            eintraege: 0,
-            komponenten: 0,
-            gesamtKomponenten: 0,
-          },
-        }));
+  // Filtere Projekte
+  const gefilterteProjekte = useMemo(() => {
+    let filtered = projekte;
+    if (filters.status) {
+      filtered = filtered.filter((p) => p.status === filters.status);
+    }
+    if (filters.datumVon) {
+      filtered = filtered.filter((p) => p.createdAt >= filters.datumVon!);
+    }
+    if (filters.datumBis) {
+      filtered = filtered.filter((p) => p.createdAt <= filters.datumBis!);
+    }
+    return filtered;
+  }, [projekte, filters]);
 
-        const protokolle = protokolleData.map((p: any) => ({
-          ...p,
-          datum: new Date(p.datum),
-        }));
+  // Berechne Analyse-Daten
+  const analyseDaten = useMemo(() => {
+    return gefilterteProjekte.map((projekt) => {
+      const projektProtokolle = protokolle.filter((p) => p.projektId === projekt.id);
+      const projektKomponenten = komponenten.filter((k) => k.projektId === projekt.id);
+      const abgeschlosseneKomponenten = projektKomponenten.filter((k) => k.status === "abgeschlossen");
 
-        // Filtere Projekte
-        let gefilterteProjekte = projekte;
-        if (filters.status) {
-          gefilterteProjekte = gefilterteProjekte.filter((p) => p.status === filters.status);
-        }
-        if (filters.datumVon) {
-          gefilterteProjekte = gefilterteProjekte.filter((p) => p.createdAt >= filters.datumVon!);
-        }
-        if (filters.datumBis) {
-          gefilterteProjekte = gefilterteProjekte.filter((p) => p.createdAt <= filters.datumBis!);
-        }
+      const dauer = projektProtokolle.reduce((sum, p) => sum + (p.zeitaufwand || 0), 0);
+      const effektivitaet = abgeschlosseneKomponenten.length > 0 ? dauer / abgeschlosseneKomponenten.length : 0;
+      const komponentenFortschritt = projektKomponenten.length > 0
+        ? (abgeschlosseneKomponenten.length / projektKomponenten.length) * 100
+        : 0;
 
-        // Berechne Analyse-Daten
-        const analyse = gefilterteProjekte.map((projekt) => {
-          const projektProtokolle = protokolle.filter((p) => p.projektId === projekt.id);
-          const projektKomponenten = komponentenData.filter((k: any) => k.projektId === projekt.id);
-          const abgeschlosseneKomponenten = projektKomponenten.filter((k: any) => k.status === "abgeschlossen");
+      const tageAktiv = projektProtokolle.length > 0
+        ? Math.ceil(
+            (Math.max(...projektProtokolle.map((p) => p.datum.getTime())) -
+              Math.min(...projektProtokolle.map((p) => p.datum.getTime()))) /
+              (1000 * 60 * 60 * 24)
+          ) || 1
+        : 0;
 
-          const dauer = projektProtokolle.reduce((sum, p) => sum + (p.zeitaufwand || 0), 0);
-          const effektivitaet = abgeschlosseneKomponenten.length > 0 ? dauer / abgeschlosseneKomponenten.length : 0;
-          const komponentenFortschritt = projektKomponenten.length > 0
-            ? (abgeschlosseneKomponenten.length / projektKomponenten.length) * 100
-            : 0;
+      const durchschnittlicheStundenProTag = tageAktiv > 0 ? dauer / tageAktiv : 0;
 
-          const tageAktiv = projektProtokolle.length > 0
-            ? Math.ceil(
-                (Math.max(...projektProtokolle.map((p) => p.datum.getTime())) -
-                  Math.min(...projektProtokolle.map((p) => p.datum.getTime()))) /
-                  (1000 * 60 * 60 * 24)
-              ) || 1
-            : 0;
+      return {
+        projektId: projekt.id,
+        projektName: projekt.name,
+        dauer,
+        effektivitaet,
+        komponentenFortschritt,
+        tageAktiv,
+        durchschnittlicheStundenProTag,
+      };
+    });
+  }, [gefilterteProjekte, protokolle, komponenten]);
 
-          const durchschnittlicheStundenProTag = tageAktiv > 0 ? dauer / tageAktiv : 0;
+  // Berechne Zeitverlauf-Daten
+  const zeitverlaufDaten = useMemo(() => {
+    const gefilterteProtokolle = protokolle.filter((p) => {
+      if (filters.datumVon && p.datum < filters.datumVon) return false;
+      if (filters.datumBis && p.datum > filters.datumBis) return false;
+      return true;
+    });
 
-          return {
-            projektId: projekt.id,
-            projektName: projekt.name,
-            dauer,
-            effektivitaet,
-            komponentenFortschritt,
-            tageAktiv,
-            durchschnittlicheStundenProTag,
-          };
-        });
+    const zeitverlaufMap = new Map<string, number>();
+    gefilterteProtokolle.forEach((p) => {
+      const datumStr = p.datum.toISOString().split("T")[0];
+      zeitverlaufMap.set(datumStr, (zeitverlaufMap.get(datumStr) || 0) + (p.zeitaufwand || 0));
+    });
 
-        setAnalyseDaten(analyse);
+    return Array.from(zeitverlaufMap.entries())
+      .map(([datum, stunden]) => ({ datum, stunden, projektName: "" }))
+      .sort((a, b) => a.datum.localeCompare(b.datum));
+  }, [protokolle, filters]);
 
-        // Berechne Zeitverlauf-Daten
-        const gefilterteProtokolle = protokolle.filter((p) => {
-          if (filters.datumVon && p.datum < filters.datumVon) return false;
-          if (filters.datumBis && p.datum > filters.datumBis) return false;
-          return true;
-        });
+  // Berechne Status-Verteilung
+  const statusVerteilung = useMemo(() => {
+    const statusMap = new Map<string, number>();
+    projekte.forEach((p) => {
+      const status = p.status || "planung";
+      statusMap.set(status, (statusMap.get(status) || 0) + 1);
+    });
 
-        const zeitverlaufMap = new Map<string, number>();
-        gefilterteProtokolle.forEach((p) => {
-          const datumStr = p.datum.toISOString().split("T")[0];
-          zeitverlaufMap.set(datumStr, (zeitverlaufMap.get(datumStr) || 0) + (p.zeitaufwand || 0));
-        });
-
-        const zeitverlauf = Array.from(zeitverlaufMap.entries())
-          .map(([datum, stunden]) => ({ datum, stunden, projektName: "" }))
-          .sort((a, b) => a.datum.localeCompare(b.datum));
-
-        setZeitverlaufDaten(zeitverlauf);
-
-        // Berechne Status-Verteilung
-        const statusMap = new Map<string, number>();
-        projekte.forEach((p) => {
-          const status = p.status || "planung";
-          statusMap.set(status, (statusMap.get(status) || 0) + 1);
-        });
-
-        const total = projekte.length;
-        const status = Array.from(statusMap.entries()).map(([statusKey, value]) => ({
-          name: statusKey === "in_bearbeitung" ? "In Bearbeitung" : statusKey === "abgeschlossen" ? "Abgeschlossen" : "Planung",
-          value,
-          prozent: total > 0 ? (value / total) * 100 : 0,
-          status: statusKey,
-          anzahl: value,
-        }));
-
-        setStatusVerteilung(status);
-      } catch (err: any) {
-        setError(err.message || "Fehler beim Laden der Daten");
-        console.error("Error loading analysis data:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, [filters]);
+    const total = projekte.length;
+    return Array.from(statusMap.entries()).map(([statusKey, value]) => ({
+      name: statusKey === "in_bearbeitung" ? "In Bearbeitung" : statusKey === "abgeschlossen" ? "Abgeschlossen" : "Planung",
+      value,
+      prozent: total > 0 ? (value / total) * 100 : 0,
+      status: statusKey,
+      anzahl: value,
+    }));
+  }, [projekte]);
 
   // Berechne Gesamtstatistiken
-  const gesamtStunden = analyseDaten.reduce((sum, d) => sum + d.dauer, 0);
-  const durchschnittlicheEffektivitaet =
-    analyseDaten.length > 0
-      ? analyseDaten.reduce((sum, d) => sum + d.effektivitaet, 0) /
-        analyseDaten.filter((d) => d.effektivitaet > 0).length
+  const gesamtStunden = useMemo(() => analyseDaten.reduce((sum, d) => sum + d.dauer, 0), [analyseDaten]);
+  const durchschnittlicheEffektivitaet = useMemo(() => {
+    const effektive = analyseDaten.filter((d) => d.effektivitaet > 0);
+    return effektive.length > 0
+      ? effektive.reduce((sum, d) => sum + d.effektivitaet, 0) / effektive.length
       : 0;
-  const durchschnittlicherFortschritt =
+  }, [analyseDaten]);
+  const durchschnittlicherFortschritt = useMemo(() =>
     analyseDaten.length > 0
-      ? analyseDaten.reduce((sum, d) => sum + d.komponentenFortschritt, 0) /
-        analyseDaten.length
-      : 0;
-  const durchschnittlicheTageAktiv =
+      ? analyseDaten.reduce((sum, d) => sum + d.komponentenFortschritt, 0) / analyseDaten.length
+      : 0,
+    [analyseDaten]
+  );
+  const durchschnittlicheTageAktiv = useMemo(() =>
     analyseDaten.length > 0
       ? analyseDaten.reduce((sum, d) => sum + d.tageAktiv, 0) / analyseDaten.length
-      : 0;
+      : 0,
+    [analyseDaten]
+  );
 
   return (
     <div className="space-y-6 md:space-y-6 lg:space-y-6 xl:space-y-8">
@@ -222,7 +192,7 @@ export default function AnalysePage() {
 
       {!isLoading && !error && (
         <>
-      {/* Quick Stats */}
+          {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-4 lg:gap-4 xl:gap-6">
         <StatsCard
           value={formatStunden(gesamtStunden)}

@@ -1,53 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Search, Box } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { komponenteApi, projektApi } from "@/lib/api";
-import type { Komponente, Projekt } from "@/types";
+import { useKomponenten, useProjekte } from "@/lib/hooks";
 
 export default function KomponentenPage() {
-  const [komponenten, setKomponenten] = useState<Komponente[]>([]);
-  const [projekte, setProjekte] = useState<Projekt[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: komponenten = [], isLoading: komponentenLoading, error: komponentenError } = useKomponenten();
+  const { data: projekte = [], isLoading: projekteLoading } = useProjekte();
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const [komponentenData, projekteData] = await Promise.all([
-          komponenteApi.getAll(),
-          projektApi.getAll(),
-        ]);
-
-        const transformedProjekte = projekteData.map((p: any) => ({
-          ...p,
-          createdAt: new Date(p.created_at || p.createdAt),
-          stats: p.stats || {
-            stunden: 0,
-            eintraege: 0,
-            komponenten: 0,
-            gesamtKomponenten: 0,
-          },
-          schaltschrankNummer: p.schaltschrank_nummer || p.schaltschrankNummer,
-          komponentenIds: p.komponenten_ids || p.komponentenIds || [],
-        }));
-
-        setKomponenten(komponentenData);
-        setProjekte(transformedProjekte);
-      } catch (err: any) {
-        setError(err.message || "Fehler beim Laden der Komponenten");
-        console.error("Error loading components:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
+  const isLoading = komponentenLoading || projekteLoading;
+  const error = komponentenError ? (komponentenError as Error).message : null;
 
   const filteredKomponenten = komponenten.filter((komponente) => {
     return (

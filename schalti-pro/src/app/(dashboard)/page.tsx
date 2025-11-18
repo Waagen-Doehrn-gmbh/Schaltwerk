@@ -8,65 +8,20 @@ import { ProjectCard } from "@/components/projekt/ProjectCard";
 import { formatDate, formatStunden, getAvatarUrl, getDisplayName } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { projektApi, protokollApi, authApi } from "@/lib/api";
-import { useState, useEffect } from "react";
-import type { Projekt, Arbeitsprotokoll, User } from "@/types";
+import { useProjekte, useProtokolle, useMe } from "@/lib/hooks";
 
 export default function DashboardPage() {
-  const [projekte, setProjekte] = useState<Projekt[]>([]);
-  const [recentActivity, setRecentActivity] = useState<Arbeitsprotokoll[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: projekte = [], isLoading: projekteLoading, error: projekteError } = useProjekte();
+  const { data: protokolle = [], isLoading: protokolleLoading } = useProtokolle();
+  const { data: currentUser } = useMe();
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const [projekteData, protokolleData, userData] = await Promise.all([
-          projektApi.getAll(),
-          protokollApi.getAll(),
-          authApi.getMe().catch(() => null),
-        ]);
-        
-        if (userData) {
-          setCurrentUser(userData as User);
-        }
-        
-        // Transformiere Backend-Daten zu Frontend-Format
-        const transformedProjekte = projekteData.map((p: any) => ({
-          ...p,
-          createdAt: new Date(p.created_at || p.createdAt),
-          stats: p.stats || {
-            stunden: 0,
-            eintraege: 0,
-            komponenten: 0,
-            gesamtKomponenten: 0,
-          },
-          schaltschrankNummer: p.schaltschrank_nummer || p.schaltschrankNummer,
-          komponentenIds: p.komponenten_ids || p.komponentenIds || [],
-        }));
+  const isLoading = projekteLoading || protokolleLoading;
+  const error = projekteError ? (projekteError as Error).message : null;
 
-        const transformedProtokolle = protokolleData
-          .map((p: any) => ({
-            ...p,
-            datum: new Date(p.datum),
-          }))
-          .sort((a: any, b: any) => b.datum.getTime() - a.datum.getTime())
-          .slice(0, 5);
-
-        setProjekte(transformedProjekte);
-        setRecentActivity(transformedProtokolle);
-      } catch (err: any) {
-        setError(err.message || "Fehler beim Laden der Daten");
-        console.error("Error loading dashboard data:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
+  // Get recent activity (last 5 protokolle, sorted by date)
+  const recentActivity = [...protokolle]
+    .sort((a, b) => b.datum.getTime() - a.datum.getTime())
+    .slice(0, 5);
 
   if (isLoading) {
     return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -13,58 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { protokollApi, projektApi } from "@/lib/api";
+import { useProtokolle, useProjekte } from "@/lib/hooks";
 import { formatDate, formatStunden, getAvatarUrl, getDisplayName } from "@/lib/utils";
-import type { Arbeitsprotokoll, Projekt } from "@/types";
 
 export default function ProtokollePage() {
-  const [allProtokolle, setAllProtokolle] = useState<Arbeitsprotokoll[]>([]);
-  const [projekte, setProjekte] = useState<Projekt[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: allProtokolle = [], isLoading: protokolleLoading, error: protokolleError } = useProtokolle();
+  const { data: projekte = [], isLoading: projekteLoading } = useProjekte();
   const [searchQuery, setSearchQuery] = useState("");
   const [projektFilter, setProjektFilter] = useState<string>("alle");
   const [userFilter, setUserFilter] = useState<string>("alle");
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const [protokolleData, projekteData] = await Promise.all([
-          protokollApi.getAll(),
-          projektApi.getAll(),
-        ]);
-
-        const transformedProtokolle = protokolleData.map((p: any) => ({
-          ...p,
-          datum: new Date(p.datum),
-        }));
-
-        const transformedProjekte = projekteData.map((p: any) => ({
-          ...p,
-          createdAt: new Date(p.created_at || p.createdAt),
-          stats: p.stats || {
-            stunden: 0,
-            eintraege: 0,
-            komponenten: 0,
-            gesamtKomponenten: 0,
-          },
-          schaltschrankNummer: p.schaltschrank_nummer || p.schaltschrankNummer,
-          komponentenIds: p.komponenten_ids || p.komponentenIds || [],
-        }));
-
-        setAllProtokolle(transformedProtokolle);
-        setProjekte(transformedProjekte);
-      } catch (err: any) {
-        setError(err.message || "Fehler beim Laden der Protokolle");
-        console.error("Error loading protocols:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
+  const isLoading = protokolleLoading || projekteLoading;
+  const error = protokolleError ? (protokolleError as Error).message : null;
 
   const filteredProtokolle = allProtokolle.filter((protokoll) => {
     const matchesSearch =
