@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api";
 import { cn, getAvatarUrl, getDisplayName } from "@/lib/utils";
 import { useTheme } from "@/components/theme/ThemeProvider";
+import { useProjekt } from "@/lib/hooks";
 import type { User } from "@/types";
 
-function getBreadcrumbs(pathname: string): { label: string; href: string }[] {
+function getBreadcrumbs(pathname: string, projektSchaltschrankNummer?: string): { label: string; href: string }[] {
   // If we're on the root dashboard, just return Dashboard
   if (pathname === "/") {
     return [{ label: "Dashboard", href: "/" }];
@@ -36,7 +37,17 @@ function getBreadcrumbs(pathname: string): { label: string; href: string }[] {
   let currentPath = "";
   paths.forEach((path, index) => {
     currentPath += `/${path}`;
-    const label = labels[path] || path;
+    let label = labels[path] || path;
+    
+    // Wenn es ein Projekt-Detail ist (projekte/[id]), zeige Schaltschranknummer
+    if (path === "projekte" && index === paths.length - 2 && paths[index + 1]) {
+      // Nächster Pfad ist die ID/Schaltschranknummer
+      label = "Projekte";
+    } else if (index === paths.length - 1 && paths[index - 1] === "projekte") {
+      // Letzter Pfad nach "projekte" - zeige Schaltschranknummer oder ID
+      label = projektSchaltschrankNummer || path;
+    }
+    
     breadcrumbs.push({
       label: index === paths.length - 1 ? label : label,
       href: currentPath,
@@ -48,9 +59,15 @@ function getBreadcrumbs(pathname: string): { label: string; href: string }[] {
 
 export function TopBar() {
   const pathname = usePathname();
-  const breadcrumbs = getBreadcrumbs(pathname);
   const { theme, toggleTheme } = useTheme();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
+  // Extrahiere Projekt-ID/Schaltschranknummer aus URL für Breadcrumbs
+  const projektMatch = pathname.match(/^\/projekte\/(.+)$/);
+  const projektIdentifier = projektMatch ? projektMatch[1] : undefined;
+  const { data: projekt } = useProjekt(projektIdentifier);
+  
+  const breadcrumbs = getBreadcrumbs(pathname, projekt?.schaltschrankNummer);
 
   useEffect(() => {
     const loadUser = async () => {
