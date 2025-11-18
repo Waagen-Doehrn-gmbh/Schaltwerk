@@ -1,29 +1,53 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Settings, Lock, Moon, Sun, CheckCircle2, AlertCircle, User, X, Upload } from "lucide-react";
+import { Settings, Lock, Moon, Sun, CheckCircle2, AlertCircle, User, X, Upload, LogOut } from "lucide-react";
 import { authApi } from "@/lib/api";
+import { useMe, useUpdateProfile, useChangePassword } from "@/lib/hooks";
 import { getAvatarUrl, setAvatarUrl, removeAvatarUrl, getUserName, setUserName, getDisplayName } from "@/lib/utils";
 import { useTheme } from "@/components/theme/ThemeProvider";
-import type { User } from "@/types";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+const nameSchema = z.object({
+  vorname: z.string().min(1, "Vorname ist erforderlich"),
+  nachname: z.string().min(1, "Nachname ist erforderlich"),
+});
+
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1, "Aktuelles Passwort ist erforderlich"),
+  newPassword: z.string().min(8, "Das neue Passwort muss mindestens 8 Zeichen lang sein"),
+  confirmPassword: z.string().min(1, "Bitte bestätigen Sie das neue Passwort"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Die neuen Passwörter stimmen nicht überein",
+  path: ["confirmPassword"],
+});
+
+type NameFormData = z.infer<typeof nameSchema>;
+type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export default function EinstellungenPage() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { data: currentUser } = useMe();
+  const updateProfileMutation = useUpdateProfile();
+  const changePasswordMutation = useChangePassword();
   
   const { theme, setTheme } = useTheme();
   const darkMode = theme === "dark";
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState("");
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
   
   // Avatar State
   const [avatarUrl, setAvatarUrlState] = useState<string | undefined>(undefined);
@@ -31,25 +55,24 @@ export default function EinstellungenPage() {
   const [avatarSuccess, setAvatarSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Name State
-  const [vorname, setVorname] = useState("");
-  const [nachname, setNachname] = useState("");
-  const [nameError, setNameError] = useState("");
-  const [nameSuccess, setNameSuccess] = useState(false);
-  const [isSavingName, setIsSavingName] = useState(false);
+  // Name Form
+  const nameForm = useForm<NameFormData>({
+    resolver: zodResolver(nameSchema),
+    defaultValues: {
+      vorname: "",
+      nachname: "",
+    },
+  });
 
-  // Benutzer beim Laden holen
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const user = await authApi.getMe() as User;
-        setCurrentUser(user);
-      } catch (error) {
-        console.error("Error loading user:", error);
-      }
-    };
-    loadUser();
-  }, []);
+  // Password Form
+  const passwordForm = useForm<PasswordFormData>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
 
   // Avatar und Namen beim Laden aus localStorage holen
   useEffect(() => {
@@ -61,15 +84,19 @@ export default function EinstellungenPage() {
     
     const storedName = getUserName(currentUser.id);
     if (storedName) {
-      setVorname(storedName.vorname);
-      setNachname(storedName.nachname);
+      nameForm.reset({
+        vorname: storedName.vorname,
+        nachname: storedName.nachname,
+      });
     } else {
       // Fallback: Name aus currentUser.name extrahieren
       const nameParts = currentUser.name.split(" ");
-      setVorname(nameParts[0] || "");
-      setNachname(nameParts.slice(1).join(" ") || "");
+      nameForm.reset({
+        vorname: nameParts[0] || "",
+        nachname: nameParts.slice(1).join(" ") || "",
+      });
     }
-  }, [currentUser]);
+  }, [currentUser, nameForm]);
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!currentUser) return;
@@ -126,92 +153,39 @@ export default function EinstellungenPage() {
     }, 3000);
   };
 
-  const handleNameChange = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onNameSubmit = async (data: NameFormData) => {
     if (!currentUser) return;
-    
-    setNameError("");
-    setNameSuccess(false);
-
-    // Validierung
-    if (!vorname.trim() || !nachname.trim()) {
-      setNameError("Bitte füllen Sie Vor- und Nachname aus.");
-      return;
-    }
-
-    setIsSavingName(true);
 
     try {
-      const fullName = `${vorname.trim()} ${nachname.trim()}`;
+      const fullName = `${data.vorname.trim()} ${data.nachname.trim()}`;
       // Extrahiere Initialen aus Vor- und Nachname
-      const initialen = (vorname.trim()[0] || "") + (nachname.trim()[0] || "");
+      const initialen = (data.vorname.trim()[0] || "") + (data.nachname.trim()[0] || "");
       
-      await authApi.updateProfile({
+      await updateProfileMutation.mutateAsync({
         name: fullName,
         initialen: initialen.length >= 2 ? initialen.toUpperCase() : currentUser.initialen,
       });
       
       // Aktualisiere auch lokal
-      setUserName(currentUser.id, vorname.trim(), nachname.trim());
-      
-      // Aktualisiere currentUser State
-      setCurrentUser({
-        ...currentUser,
-        name: fullName,
-        initialen: initialen.length >= 2 ? initialen.toUpperCase() : currentUser.initialen,
+      setUserName(currentUser.id, data.vorname.trim(), data.nachname.trim());
+    } catch (err: any) {
+      nameForm.setError("root", {
+        message: err.message || "Fehler beim Speichern der Namen. Bitte versuchen Sie es erneut.",
       });
-      
-      setNameSuccess(true);
-      
-      // Erfolgsmeldung nach 3 Sekunden ausblenden
-      setTimeout(() => {
-        setNameSuccess(false);
-      }, 3000);
-    } catch (err) {
-      setNameError("Fehler beim Speichern der Namen. Bitte versuchen Sie es erneut.");
-    } finally {
-      setIsSavingName(false);
     }
   };
 
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordError("");
-    setPasswordSuccess(false);
-
-    // Validierung
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError("Bitte füllen Sie alle Felder aus.");
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setPasswordError("Das neue Passwort muss mindestens 8 Zeichen lang sein.");
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError("Die neuen Passwörter stimmen nicht überein.");
-      return;
-    }
-
-    setIsLoading(true);
-
+  const onPasswordSubmit = async (data: PasswordFormData) => {
     try {
-      await authApi.changePassword(currentPassword, newPassword);
-      setPasswordSuccess(true);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      
-      // Erfolgsmeldung nach 3 Sekunden ausblenden
-      setTimeout(() => {
-        setPasswordSuccess(false);
-      }, 3000);
-    } catch (err) {
-      setPasswordError("Fehler beim Ändern des Passworts. Bitte versuchen Sie es erneut.");
-    } finally {
-      setIsLoading(false);
+      await changePasswordMutation.mutateAsync({
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
+      });
+      passwordForm.reset();
+    } catch (err: any) {
+      passwordForm.setError("root", {
+        message: err.message || "Fehler beim Ändern des Passworts. Bitte versuchen Sie es erneut.",
+      });
     }
   };
 
@@ -248,56 +222,72 @@ export default function EinstellungenPage() {
             <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-foreground mb-3">Name</h3>
-                <form onSubmit={handleNameChange} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="vorname">Vorname</Label>
-                      <Input
-                        id="vorname"
-                        type="text"
-                        placeholder="Vorname"
-                        value={vorname}
-                        onChange={(e) => setVorname(e.target.value)}
-                        disabled={isSavingName}
-                        required
+                <Form {...nameForm}>
+                  <form onSubmit={nameForm.handleSubmit(onNameSubmit)} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={nameForm.control}
+                        name="vorname"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Vorname</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="text"
+                                placeholder="Vorname"
+                                disabled={updateProfileMutation.isPending}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={nameForm.control}
+                        name="nachname"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nachname</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="text"
+                                placeholder="Nachname"
+                                disabled={updateProfileMutation.isPending}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="nachname">Nachname</Label>
-                      <Input
-                        id="nachname"
-                        type="text"
-                        placeholder="Nachname"
-                        value={nachname}
-                        onChange={(e) => setNachname(e.target.value)}
-                        disabled={isSavingName}
-                        required
-                      />
-                    </div>
-                  </div>
 
-                  {/* Fehlermeldung */}
-                  {nameError && (
-                    <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-red-900">{nameError}</p>
-                    </div>
-                  )}
+                    {/* Fehlermeldung */}
+                    {nameForm.formState.errors.root && (
+                      <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-red-900">
+                          {nameForm.formState.errors.root.message}
+                        </p>
+                      </div>
+                    )}
 
-                  {/* Erfolgsmeldung */}
-                  {nameSuccess && (
-                    <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-green-900">
-                        Name wurde erfolgreich gespeichert.
-                      </p>
-                    </div>
-                  )}
+                    {/* Erfolgsmeldung */}
+                    {updateProfileMutation.isSuccess && (
+                      <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-green-900">
+                          Name wurde erfolgreich gespeichert.
+                        </p>
+                      </div>
+                    )}
 
-                  <Button type="submit" disabled={isSavingName} className="w-full sm:w-auto">
-                    {isSavingName ? "Wird gespeichert..." : "Name speichern"}
-                  </Button>
-                </form>
+                    <Button type="submit" disabled={updateProfileMutation.isPending} className="w-full sm:w-auto">
+                      {updateProfileMutation.isPending ? "Wird gespeichert..." : "Name speichern"}
+                    </Button>
+                  </form>
+                </Form>
               </div>
             </div>
 
@@ -399,76 +389,97 @@ export default function EinstellungenPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handlePasswordChange} className="space-y-4">
-            {/* Aktuelles Passwort */}
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Aktuelles Passwort</Label>
-              <Input
-                id="currentPassword"
-                type="password"
-                placeholder="••••••••"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                disabled={isLoading}
-                required
+          <Form {...passwordForm}>
+            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+              {/* Aktuelles Passwort */}
+              <FormField
+                control={passwordForm.control}
+                name="currentPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Aktuelles Passwort</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="password"
+                        placeholder="••••••••"
+                        disabled={changePasswordMutation.isPending}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            {/* Neues Passwort */}
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">Neues Passwort</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                placeholder="••••••••"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                disabled={isLoading}
-                required
-                minLength={8}
+              {/* Neues Passwort */}
+              <FormField
+                control={passwordForm.control}
+                name="newPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Neues Passwort</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="password"
+                        placeholder="••••••••"
+                        disabled={changePasswordMutation.isPending}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-slate-500">
+                      Mindestens 8 Zeichen
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <p className="text-xs text-slate-500">
-                Mindestens 8 Zeichen
-              </p>
-            </div>
 
-            {/* Passwort bestätigen */}
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Neues Passwort bestätigen</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={isLoading}
-                required
+              {/* Passwort bestätigen */}
+              <FormField
+                control={passwordForm.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Neues Passwort bestätigen</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="password"
+                        placeholder="••••••••"
+                        disabled={changePasswordMutation.isPending}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            {/* Fehlermeldung */}
-            {passwordError && (
-              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-red-900">{passwordError}</p>
-              </div>
-            )}
+              {/* Fehlermeldung */}
+              {passwordForm.formState.errors.root && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-red-900">
+                    {passwordForm.formState.errors.root.message}
+                  </p>
+                </div>
+              )}
 
-            {/* Erfolgsmeldung */}
-            {passwordSuccess && (
-              <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-green-900">
-                  Passwort wurde erfolgreich geändert.
-                </p>
-              </div>
-            )}
+              {/* Erfolgsmeldung */}
+              {changePasswordMutation.isSuccess && (
+                <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-green-900">
+                    Passwort wurde erfolgreich geändert.
+                  </p>
+                </div>
+              )}
 
-            {/* Submit Button */}
-            <Button type="submit" disabled={isLoading} className="w-full">
-              {isLoading ? "Wird gespeichert..." : "Passwort ändern"}
-            </Button>
-          </form>
+              {/* Submit Button */}
+              <Button type="submit" disabled={changePasswordMutation.isPending} className="w-full">
+                {changePasswordMutation.isPending ? "Wird gespeichert..." : "Passwort ändern"}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 
@@ -503,6 +514,43 @@ export default function EinstellungenPage() {
               onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Logout */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LogOut className="h-5 w-5" />
+            Abmelden
+          </CardTitle>
+          <CardDescription>
+            Melden Sie sich von Ihrem Konto ab.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="destructive"
+            onClick={async () => {
+              try {
+                await authApi.logout();
+                // Redirect to login page
+                if (typeof window !== "undefined") {
+                  window.location.href = "/login";
+                }
+              } catch (error: any) {
+                console.error("Logout error:", error);
+                // Even if logout fails, redirect to login
+                if (typeof window !== "undefined") {
+                  window.location.href = "/login";
+                }
+              }
+            }}
+            className="w-full"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Abmelden
+          </Button>
         </CardContent>
       </Card>
     </div>
