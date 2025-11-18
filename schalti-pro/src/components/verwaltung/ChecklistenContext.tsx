@@ -7,6 +7,10 @@ import {
   STANDARD_ABNAHME_CHECKLISTE,
   ENDABNAHME_CHECKLISTE,
 } from "@/components/protokoll/AbnahmeCheckliste";
+import {
+  getDeletedFallbackChecklisten,
+  markFallbackChecklisteAsDeleted,
+} from "@/lib/checklisten-fallback";
 
 // Initiale Checklisten (Fallback)
 const initialChecklisten: Checkliste[] = [
@@ -49,20 +53,31 @@ export function ChecklistenProvider({ children }: { children: ReactNode }) {
       console.log("✅ Checklisten aus API geladen:", apiChecklisten.length, "Checklisten");
       console.log("✅ Checklisten-Details aus API:", JSON.stringify(apiChecklisten.map(c => ({ id: c.id, name: c.name })), null, 2));
       
-      // Kombiniere API-Checklisten mit initialen Checklisten
-      // API-Checklisten haben Vorrang (überschreiben initiale mit gleicher ID)
-      const combinedChecklisten: Checkliste[] = [...initialChecklisten];
+      // Starte mit API-Checklisten
+      const combinedChecklisten: Checkliste[] = [...apiChecklisten];
       
-      apiChecklisten.forEach((apiCheckliste) => {
-        const existingIndex = combinedChecklisten.findIndex((c) => c.id === apiCheckliste.id);
-        if (existingIndex >= 0) {
-          // Überschreibe initiale Checkliste
-          console.log(`  🔄 Überschreibe Checkliste: ${apiCheckliste.id} (${apiCheckliste.name})`);
-          combinedChecklisten[existingIndex] = apiCheckliste;
-        } else {
-          // Füge neue Checkliste hinzu
-          console.log(`  ➕ Füge neue Checkliste hinzu: ${apiCheckliste.id} (${apiCheckliste.name})`);
-          combinedChecklisten.push(apiCheckliste);
+      // Lade gelöschte Fallback-Checklisten
+      const deletedFallbackIds = getDeletedFallbackChecklisten();
+      
+      // Füge Fallback-Checklisten nur hinzu, wenn:
+      // 1. Keine entsprechende Checkliste in der API existiert
+      // 2. Die Fallback-Checkliste nicht vom Benutzer gelöscht wurde
+      initialChecklisten.forEach((fallbackCheckliste) => {
+        const existsInApi = apiChecklisten.some(
+          (apiCheckliste) => 
+            apiCheckliste.name === fallbackCheckliste.name && 
+            apiCheckliste.typ === fallbackCheckliste.typ
+        );
+        
+        const wasDeleted = deletedFallbackIds.includes(fallbackCheckliste.id);
+        
+        if (!existsInApi && !wasDeleted) {
+          console.log(`  ➕ Füge Fallback-Checkliste hinzu: ${fallbackCheckliste.name} (${fallbackCheckliste.id})`);
+          combinedChecklisten.push(fallbackCheckliste);
+        } else if (existsInApi) {
+          console.log(`  ⏭️  Überspringe Fallback-Checkliste (existiert bereits in API): ${fallbackCheckliste.name}`);
+        } else if (wasDeleted) {
+          console.log(`  🗑️  Überspringe Fallback-Checkliste (vom Benutzer gelöscht): ${fallbackCheckliste.name}`);
         }
       });
       
@@ -71,8 +86,10 @@ export function ChecklistenProvider({ children }: { children: ReactNode }) {
       setChecklisten(combinedChecklisten);
     } catch (err: any) {
       console.error("❌ Fehler beim Laden der Checklisten:", err);
-      // Bei Fehler: Verwende initiale Checklisten
-      setChecklisten(initialChecklisten);
+      // Bei Fehler: Verwende initiale Checklisten (aber nur die nicht gelöschten)
+      const deletedFallbackIds = getDeletedFallbackChecklisten();
+      const filteredInitial = initialChecklisten.filter(c => !deletedFallbackIds.includes(c.id));
+      setChecklisten(filteredInitial);
     } finally {
       setIsLoading(false);
     }
@@ -100,6 +117,12 @@ export function ChecklistenProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteCheckliste = (id: string) => {
+    // Prüfe ob es eine Fallback-Checkliste ist
+    const isFallback = initialChecklisten.some(c => c.id === id);
+    if (isFallback) {
+      // Markiere Fallback-Checkliste als gelöscht
+      markFallbackChecklisteAsDeleted(id);
+    }
     setChecklisten((prev) => prev.filter((c) => c.id !== id));
   };
 

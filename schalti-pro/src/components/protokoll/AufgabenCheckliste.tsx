@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import type { AbnahmeChecklisteItem, Komponente, Checkliste } from "@/types";
 import { cn } from "@/lib/utils";
 import { useChecklistenOptional } from "@/components/verwaltung/ChecklistenContext";
+import { filterDeletedFallbackChecklisten } from "@/lib/checklisten-fallback";
 
 interface AufgabenChecklisteProps {
   checkliste: AbnahmeChecklisteItem[];
@@ -52,7 +53,10 @@ export function AufgabenCheckliste({
 }: AufgabenChecklisteProps) {
   const checklistenContext = useChecklistenOptional();
   const allChecklisten = checklistenContext?.checklisten || [];
-  const komponentenChecklisten = useMemo(() => getKomponentenChecklisten(), []);
+  const komponentenChecklisten = useMemo(() => {
+    const all = getKomponentenChecklisten();
+    return filterDeletedFallbackChecklisten(all);
+  }, []);
   const allAvailableChecklisten = useMemo(
     () => [...allChecklisten, ...komponentenChecklisten],
     [allChecklisten, komponentenChecklisten]

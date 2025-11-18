@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import type { AbnahmeChecklisteItem, Komponente, Checkliste } from "@/types";
 import { cn } from "@/lib/utils";
 import { useChecklistenOptional } from "@/components/verwaltung/ChecklistenContext";
+import { filterDeletedFallbackChecklisten } from "@/lib/checklisten-fallback";
 
 interface KomponentenChecklisteDialogProps {
   komponente: Komponente;
@@ -64,7 +65,10 @@ export function KomponentenChecklisteDialog({
     [contextChecklisten]
   );
   
-  const komponentenChecklisten = useMemo(() => getKomponentenChecklisten(), []);
+  const komponentenChecklisten = useMemo(() => {
+    const all = getKomponentenChecklisten();
+    return filterDeletedFallbackChecklisten(all);
+  }, []);
   
   // Memoize allAvailableChecklisten nur wenn sich die IDs ändern
   const allAvailableChecklisten = useMemo(

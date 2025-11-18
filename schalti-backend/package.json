@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "migrate": "tsx src/migrations/run-migrations.ts",
-    "seed": "tsx src/migrations/seed-data.ts"
+    "seed": "tsx src/migrations/seed-data.ts",
+    "reset-komponenten": "tsx src/migrations/reset-komponenten.ts"
   },
   "keywords": [],
   "author": "",

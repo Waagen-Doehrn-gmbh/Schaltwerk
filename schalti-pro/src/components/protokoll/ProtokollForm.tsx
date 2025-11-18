@@ -34,6 +34,7 @@ import { AufgabenCheckliste } from "./AufgabenCheckliste";
 import type { ProtokollFormData, AbnahmeChecklisteItem, User, Arbeitsprotokoll, Checkliste, Komponente, Aufgabe } from "@/types";
 import { AlertCircle } from "lucide-react";
 import { useChecklistenOptional } from "@/components/verwaltung/ChecklistenContext";
+import { filterDeletedFallbackChecklisten } from "@/lib/checklisten-fallback";
 
 const protokollSchema = z.object({
   aufgabe: z.string().min(1, "Aufgabe ist erforderlich"),
@@ -123,7 +124,11 @@ export function ProtokollForm({
   const [aufgabenLoading, setAufgabenLoading] = useState(true);
   const [aufgabenError, setAufgabenError] = useState<string | null>(null);
   const checklistenContext = useChecklistenOptional();
-  const fallbackChecklisten = useMemo(() => getFallbackChecklisten(), []);
+  const fallbackChecklisten = useMemo(() => {
+    const allFallbacks = getFallbackChecklisten();
+    // Filtere gelöschte Fallback-Checklisten
+    return filterDeletedFallbackChecklisten(allFallbacks);
+  }, []);
   
   // Lade Aufgaben aus der API
   useEffect(() => {
@@ -234,6 +239,8 @@ export function ProtokollForm({
   const watchedAufgabe = form.watch("aufgabe");
   const watchedDetails = form.watch("details");
   const watchedZeitaufwand = form.watch("zeitaufwand");
+  const watchedChecklisteStatus = form.watch("checklisteStatus");
+  const watchedAbnahmeStatus = form.watch("abnahmeStatus");
 
   const [komponentenChecklistenFehler, setKomponentenChecklistenFehler] = useState<string>("");
   const [showCheckliste, setShowCheckliste] = useState(false);
@@ -657,41 +664,41 @@ export function ProtokollForm({
                    getKomponentenChecklistenStatus={komponentenChecklistenStatusRef}
                  />
                )}
-               {formData.checklisteStatus && (
+               {watchedChecklisteStatus && (
                  <div className="mt-3 p-3 rounded-lg border bg-slate-50 dark:bg-muted">
                    <p className="text-sm font-medium text-slate-700 dark:text-foreground">
                      Checkliste-Status:{" "}
                      <span
                        className={
-                         formData.checklisteStatus === "abgeschlossen"
+                         watchedChecklisteStatus === "abgeschlossen"
                            ? "text-green-700 font-semibold"
                            : "text-yellow-700 font-semibold"
                        }
                      >
-                       {formData.checklisteStatus === "abgeschlossen"
+                       {watchedChecklisteStatus === "abgeschlossen"
                          ? "Abgeschlossen ✓"
                          : "Teilabschluss ⚠"}
                      </span>
                    </p>
-                   {formData.checklisteStatus === "teilabschluss" && (
+                   {watchedChecklisteStatus === "teilabschluss" && (
                      <p className="text-xs text-yellow-700 mt-1">
                        Nicht alle Punkte sind abgehakt. Beim nächsten Mal werden die bereits erledigten Punkte vorausgefüllt.
                      </p>
                    )}
                  </div>
                )}
-               {formData.abnahmeStatus && (
+               {watchedAbnahmeStatus && (
                 <div className="mt-3 p-3 rounded-lg border bg-slate-50 dark:bg-muted">
                   <p className="text-sm font-medium text-slate-700 dark:text-foreground">
                     Abnahme-Status:{" "}
                     <span
                       className={
-                        formData.abnahmeStatus === "bestanden"
+                        watchedAbnahmeStatus === "bestanden"
                           ? "text-green-700 font-semibold"
                           : "text-red-700 font-semibold"
                       }
                     >
-                      {formData.abnahmeStatus === "bestanden"
+                      {watchedAbnahmeStatus === "bestanden"
                         ? "Bestanden ✓"
                         : "Verweigert ✗"}
                     </span>

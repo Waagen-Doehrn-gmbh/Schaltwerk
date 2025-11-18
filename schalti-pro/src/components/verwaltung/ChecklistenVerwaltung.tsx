@@ -99,6 +99,12 @@ export function ChecklistenVerwaltung() {
     setIsDialogOpen(true);
   };
 
+  // Prüfe ob eine ID eine UUID ist
+  const isUUID = (id: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(id);
+  };
+
   // Checkliste speichern
   const onSubmit = async (data: ChecklisteFormData) => {
     // Validiere Items
@@ -116,16 +122,31 @@ export function ChecklistenVerwaltung() {
 
     try {
       if (editingCheckliste) {
-        const updated = await updateMutation.mutateAsync({
-          id: editingCheckliste.id,
-          data: {
+        // Prüfe ob die Checkliste eine Fallback-ID hat (keine UUID)
+        if (!isUUID(editingCheckliste.id)) {
+          // Fallback-Checkliste: Erstelle sie zuerst in der Datenbank
+          const neueCheckliste = await createMutation.mutateAsync({
             name: data.name.trim(),
             typ: data.typ,
             items: itemsWithIds,
-          },
-        });
-        updateCheckliste(editingCheckliste.id, updated);
-        await refreshChecklisten();
+          });
+          // Entferne die alte Fallback-Checkliste und füge die neue hinzu
+          deleteFromContext(editingCheckliste.id);
+          addCheckliste(neueCheckliste);
+          await refreshChecklisten();
+        } else {
+          // Normale Checkliste: Update
+          const updated = await updateMutation.mutateAsync({
+            id: editingCheckliste.id,
+            data: {
+              name: data.name.trim(),
+              typ: data.typ,
+              items: itemsWithIds,
+            },
+          });
+          updateCheckliste(editingCheckliste.id, updated);
+          await refreshChecklisten();
+        }
       } else {
         const neueCheckliste = await createMutation.mutateAsync({
           name: data.name.trim(),
@@ -152,9 +173,16 @@ export function ChecklistenVerwaltung() {
     }
     
     try {
-      await deleteMutation.mutateAsync(checkliste.id);
-      deleteFromContext(checkliste.id);
-      await refreshChecklisten();
+      // Prüfe ob die Checkliste eine Fallback-ID hat (keine UUID)
+      if (!isUUID(checkliste.id)) {
+        // Fallback-Checkliste: Nur aus Context entfernen
+        deleteFromContext(checkliste.id);
+      } else {
+        // Normale Checkliste: Aus Datenbank löschen
+        await deleteMutation.mutateAsync(checkliste.id);
+        deleteFromContext(checkliste.id);
+        await refreshChecklisten();
+      }
     } catch (error: any) {
       alert("Fehler beim Löschen: " + (error.message || "Unbekannter Fehler"));
     }
