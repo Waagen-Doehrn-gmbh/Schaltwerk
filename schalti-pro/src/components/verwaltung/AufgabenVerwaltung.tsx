@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -21,116 +23,104 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Plus, Edit, Trash2, Search, ListChecks } from "lucide-react";
-import { aufgabeApi, checklisteApi, type Checkliste } from "@/lib/api";
+import { useAufgaben, useChecklisten, useCreateAufgabe, useUpdateAufgabe, useDeleteAufgabe } from "@/lib/hooks";
 import type { Aufgabe } from "@/types";
 import { Badge } from "@/components/ui/badge";
-import { useEffect } from "react";
+
+const aufgabeSchema = z.object({
+  name: z.string().min(1, "Aufgabename ist erforderlich"),
+  checklisteId: z.string().optional(),
+});
+
+type AufgabeFormData = z.infer<typeof aufgabeSchema>;
 
 export function AufgabenVerwaltung() {
-  const [aufgaben, setAufgaben] = useState<Aufgabe[]>([]);
-  const [checklisten, setChecklisten] = useState<Checkliste[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: aufgaben = [], isLoading: aufgabenLoading, error: aufgabenError } = useAufgaben();
+  const { data: checklisten = [], isLoading: checklistenLoading } = useChecklisten();
+  const createMutation = useCreateAufgabe();
+  const updateMutation = useUpdateAufgabe();
+  const deleteMutation = useDeleteAufgabe();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAufgabe, setEditingAufgabe] = useState<Aufgabe | null>(null);
-  
-  // Lade Aufgaben und Checklisten vom Backend
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const [aufgabenData, checklistenData] = await Promise.all([
-          aufgabeApi.getAll(),
-          checklisteApi.getAll(),
-        ]);
-        setAufgaben(aufgabenData);
-        setChecklisten(checklistenData);
-      } catch (err: any) {
-        setError(err.message || "Fehler beim Laden der Daten");
-        console.error("Error loading data:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, []);
-  const [formData, setFormData] = useState({ name: "", checklisteId: "none" });
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Formular zurücksetzen
-  const resetForm = () => {
-    setFormData({ name: "", checklisteId: "none" });
-    setEditingAufgabe(null);
-  };
+  const form = useForm<AufgabeFormData>({
+    resolver: zodResolver(aufgabeSchema),
+    defaultValues: {
+      name: "",
+      checklisteId: undefined,
+    },
+  });
+
+  const isLoading = aufgabenLoading || checklistenLoading;
+  const error = aufgabenError ? (aufgabenError as Error).message : null;
 
   // Dialog öffnen für neue Aufgabe
   const handleNewAufgabe = () => {
-    resetForm();
+    form.reset({ name: "", checklisteId: undefined });
+    setEditingAufgabe(null);
     setIsDialogOpen(true);
   };
 
   // Dialog öffnen für Bearbeitung
   const handleEditAufgabe = (aufgabe: Aufgabe) => {
     setEditingAufgabe(aufgabe);
-    setFormData({ name: aufgabe.name, checklisteId: aufgabe.checklisteId || "none" });
+    form.reset({
+      name: aufgabe.name,
+      checklisteId: aufgabe.checklisteId || undefined,
+    });
     setIsDialogOpen(true);
   };
 
   // Aufgabe speichern
-  const handleSaveAufgabe = async () => {
-    if (!formData.name.trim()) {
-      alert("Bitte geben Sie einen Aufgabennamen ein.");
-      return;
-    }
-
+  const onSubmit = async (data: AufgabeFormData) => {
     try {
       if (editingAufgabe) {
-        // Aufgabe bearbeiten
-        const updated = await aufgabeApi.update(editingAufgabe.id, {
-          name: formData.name.trim(),
-          checklisteId: formData.checklisteId === "none" ? undefined : formData.checklisteId,
+        await updateMutation.mutateAsync({
+          id: editingAufgabe.id,
+          data: {
+            name: data.name.trim(),
+            checklisteId: data.checklisteId || undefined,
+          },
         });
-        setAufgaben((prev) =>
-          prev.map((a) => (a.id === editingAufgabe.id ? updated : a))
-        );
       } else {
-        // Neue Aufgabe erstellen
-        if (aufgaben.some((a) => a.name === formData.name.trim())) {
-          alert("Diese Aufgabe existiert bereits.");
+        if (aufgaben.some((a) => a.name === data.name.trim())) {
+          form.setError("name", { message: "Diese Aufgabe existiert bereits." });
           return;
         }
-        const neueAufgabe = await aufgabeApi.create({
-          name: formData.name.trim(),
-          checklisteId: formData.checklisteId === "none" ? undefined : formData.checklisteId,
-        });
-        setAufgaben((prev) => [...prev, neueAufgabe]);
+        await createMutation.mutateAsync({
+          name: data.name.trim(),
+          checklisteId: data.checklisteId || undefined,
+        } as Omit<Aufgabe, "id">);
       }
-
       setIsDialogOpen(false);
-      resetForm();
+      form.reset();
     } catch (error: any) {
-      alert("Fehler beim Speichern: " + (error.message || "Unbekannter Fehler"));
-      console.error("Error saving task:", error);
+      form.setError("root", {
+        message: error.message || "Fehler beim Speichern",
+      });
     }
   };
 
   // Aufgabe löschen
   const handleDeleteAufgabe = async (aufgabe: Aufgabe) => {
-    if (
-      !confirm(
-        `Möchten Sie die Aufgabe "${aufgabe.name}" wirklich löschen?`
-      )
-    ) {
+    if (!confirm(`Möchten Sie die Aufgabe "${aufgabe.name}" wirklich löschen?`)) {
       return;
     }
     
     try {
-      await aufgabeApi.delete(aufgabe.id);
-      setAufgaben((prev) => prev.filter((a) => a.id !== aufgabe.id));
+      await deleteMutation.mutateAsync(aufgabe.id);
     } catch (error: any) {
       alert("Fehler beim Löschen: " + (error.message || "Unbekannter Fehler"));
-      console.error("Error deleting task:", error);
     }
   };
 
@@ -189,60 +179,84 @@ export function AufgabenVerwaltung() {
                   : "Erstellen Sie eine neue Aufgabe. Optional können Sie eine Checkliste zuordnen."}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="aufgabe-name">Aufgabename *</Label>
-                <Input
-                  id="aufgabe-name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="z.B. Komponenten eingebaut"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSaveAufgabe();
-                    }
-                  }}
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Aufgabename *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="z.B. Komponenten eingebaut"
+                          disabled={createMutation.isPending || updateMutation.isPending}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="aufgabe-checkliste">Checkliste (optional)</Label>
-                <Select
-                  value={formData.checklisteId}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, checklisteId: value })
-                  }
-                >
-                  <SelectTrigger id="aufgabe-checkliste">
-                    <SelectValue placeholder="Keine Checkliste" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Keine Checkliste</SelectItem>
-                    {checklisten.map((checkliste) => {
-                      const typLabel = 
-                        checkliste.typ === "technisch" ? "Technisch" :
-                        checkliste.typ === "endabnahme" ? "Endabnahme" :
-                        "Allgemein";
-                      return (
-                        <SelectItem key={checkliste.id} value={checkliste.id}>
-                          {checkliste.name} ({typLabel})
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-slate-500">
-                  Wählen Sie eine Checkliste, die bei dieser Aufgabe verwendet werden soll.
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button onClick={handleSaveAufgabe}>
-                {editingAufgabe ? "Speichern" : "Anlegen"}
-              </Button>
-            </DialogFooter>
+                <FormField
+                  control={form.control}
+                  name="checklisteId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Checkliste (optional)</FormLabel>
+                      <Select
+                        value={field.value || "none"}
+                        onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
+                        disabled={createMutation.isPending || updateMutation.isPending}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Keine Checkliste" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">Keine Checkliste</SelectItem>
+                          {checklisten.map((checkliste) => {
+                            const typLabel = 
+                              checkliste.typ === "technisch" ? "Technisch" :
+                              checkliste.typ === "endabnahme" ? "Endabnahme" :
+                              "Allgemein";
+                            return (
+                              <SelectItem key={checkliste.id} value={checkliste.id}>
+                                {checkliste.name} ({typLabel})
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-slate-500">
+                        Wählen Sie eine Checkliste, die bei dieser Aufgabe verwendet werden soll.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.formState.errors.root && (
+                  <p className="text-sm text-red-500">{form.formState.errors.root.message}</p>
+                )}
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    Abbrechen
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    {editingAufgabe ? "Speichern" : "Anlegen"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>

@@ -1,17 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -21,58 +16,53 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
-import { komponenteApi } from "@/lib/api";
+import { useKomponenten, useCreateKomponente, useUpdateKomponente, useDeleteKomponente } from "@/lib/hooks";
 import type { Komponente } from "@/types";
 
+const komponenteSchema = z.object({
+  name: z.string().min(1, "Komponentenname ist erforderlich"),
+  artikelNummer: z.string().min(1, "Artikelnummer ist erforderlich"),
+});
+
+type KomponenteFormData = z.infer<typeof komponenteSchema>;
+
 export function KomponentenVerwaltung() {
-  const [komponenten, setKomponenten] = useState<Komponente[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: komponenten = [], isLoading, error: komponentenError } = useKomponenten();
+  const createMutation = useCreateKomponente();
+  const updateMutation = useUpdateKomponente();
+  const deleteMutation = useDeleteKomponente();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
-  // Lade Komponenten vom Backend
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const komponentenData = await komponenteApi.getAll();
-        setKomponenten(komponentenData);
-      } catch (err: any) {
-        setError(err.message || "Fehler beim Laden der Daten");
-        console.error("Error loading data:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, []);
   const [editingKomponente, setEditingKomponente] = useState<Komponente | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [formData, setFormData] = useState({
-    name: "",
-    artikelNummer: "",
-  });
 
-  // Formular zurücksetzen
-  const resetForm = () => {
-    setFormData({
+  const form = useForm<KomponenteFormData>({
+    resolver: zodResolver(komponenteSchema),
+    defaultValues: {
       name: "",
       artikelNummer: "",
-    });
-    setEditingKomponente(null);
-  };
+    },
+  });
 
   // Dialog öffnen für neue Komponente
   const handleNewKomponente = () => {
-    resetForm();
+    form.reset();
+    setEditingKomponente(null);
     setIsDialogOpen(true);
   };
 
   // Dialog öffnen für Bearbeitung
   const handleEditKomponente = (komponente: Komponente) => {
     setEditingKomponente(komponente);
-    setFormData({
+    form.reset({
       name: komponente.name,
       artikelNummer: komponente.artikelNummer,
     });
@@ -80,55 +70,35 @@ export function KomponentenVerwaltung() {
   };
 
   // Komponente speichern
-  const handleSaveKomponente = async () => {
-    if (!formData.name || !formData.artikelNummer) {
-      alert("Bitte füllen Sie alle Pflichtfelder aus.");
-      return;
-    }
-
+  const onSubmit = async (data: KomponenteFormData) => {
     try {
       if (editingKomponente) {
-        // Komponente bearbeiten
-        const updated = await komponenteApi.update(editingKomponente.id, {
-          name: formData.name,
-          artikelNummer: formData.artikelNummer,
+        await updateMutation.mutateAsync({
+          id: editingKomponente.id,
+          data,
         });
-        setKomponenten((prev) =>
-          prev.map((k) => (k.id === editingKomponente.id ? (updated as Komponente) : k))
-        );
       } else {
-        // Neue Komponente erstellen (ohne Projekt - wird später in Projekten zugeordnet)
-        const neueKomponente = await komponenteApi.create({
-          name: formData.name,
-          artikelNummer: formData.artikelNummer,
-        });
-        setKomponenten((prev) => [...prev, neueKomponente as Komponente]);
+        await createMutation.mutateAsync(data);
       }
-
       setIsDialogOpen(false);
-      resetForm();
+      form.reset();
     } catch (error: any) {
-      alert("Fehler beim Speichern: " + (error.message || "Unbekannter Fehler"));
-      console.error("Error saving component:", error);
+      form.setError("root", {
+        message: error.message || "Fehler beim Speichern",
+      });
     }
   };
 
   // Komponente löschen
   const handleDeleteKomponente = async (komponente: Komponente) => {
-    if (
-      !confirm(
-        `Möchten Sie die Komponente "${komponente.name}" wirklich löschen?`
-      )
-    ) {
+    if (!confirm(`Möchten Sie die Komponente "${komponente.name}" wirklich löschen?`)) {
       return;
     }
     
     try {
-      await komponenteApi.delete(komponente.id);
-      setKomponenten((prev) => prev.filter((k) => k.id !== komponente.id));
+      await deleteMutation.mutateAsync(komponente.id);
     } catch (error: any) {
       alert("Fehler beim Löschen: " + (error.message || "Unbekannter Fehler"));
-      console.error("Error deleting component:", error);
     }
   };
 
@@ -139,6 +109,8 @@ export function KomponentenVerwaltung() {
       k.artikelNummer.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
+
+  const error = komponentenError ? (komponentenError as Error).message : null;
 
   if (isLoading) {
     return (
@@ -186,39 +158,66 @@ export function KomponentenVerwaltung() {
                   : "Erstellen Sie eine neue Komponente. Diese kann später in Projekten ausgewählt werden."}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="komp-name">Komponentenname *</Label>
-                <Input
-                  id="komp-name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="z.B. Hauptschalter 63A"
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Komponentenname *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="z.B. Hauptschalter 63A"
+                          disabled={createMutation.isPending || updateMutation.isPending}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="artikelNummer">Artikelnummer *</Label>
-                <Input
-                  id="artikelNummer"
-                  value={formData.artikelNummer}
-                  onChange={(e) =>
-                    setFormData({ ...formData, artikelNummer: e.target.value })
-                  }
-                  placeholder="z.B. HS-63A-001"
+                <FormField
+                  control={form.control}
+                  name="artikelNummer"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Artikelnummer *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="z.B. HS-63A-001"
+                          disabled={createMutation.isPending || updateMutation.isPending}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <p className="text-xs text-slate-500 dark:text-muted-foreground">
-                Komponenten können später in Projekten ausgewählt und zugeordnet werden.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button onClick={handleSaveKomponente}>
-                {editingKomponente ? "Speichern" : "Anlegen"}
-              </Button>
-            </DialogFooter>
+                {form.formState.errors.root && (
+                  <p className="text-sm text-red-500">{form.formState.errors.root.message}</p>
+                )}
+                <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                  Komponenten können später in Projekten ausgewählt und zugeordnet werden.
+                </p>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    Abbrechen
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    {editingKomponente ? "Speichern" : "Anlegen"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>

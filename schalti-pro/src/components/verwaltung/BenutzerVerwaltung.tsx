@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -21,10 +23,31 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Plus, Edit, Trash2, Users } from "lucide-react";
-import { userApi, authApi, type CreateUserData, type UpdateUserData } from "@/lib/api";
+import { useUsers, useMe, useCreateUser, useUpdateUser, useDeleteUser } from "@/lib/hooks";
 import type { User, UserRole } from "@/types";
 import { Badge } from "@/components/ui/badge";
+
+const userSchema = z.object({
+  email: z.string().email("Ungültige E-Mail-Adresse"),
+  password: z.string().optional(),
+  name: z.string().min(1, "Name ist erforderlich"),
+  initialen: z.string().min(1, "Initialen sind erforderlich").max(10),
+  rolle: z.enum(["admin", "monteur", "technische_abnahme", "endabnahme"]),
+}).refine((data) => {
+  // Passwort ist nur beim Erstellen erforderlich
+  return true;
+});
+
+type UserFormData = z.infer<typeof userSchema>;
 
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Administrator",
@@ -34,23 +57,30 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export function BenutzerVerwaltung() {
-  const [benutzer, setBenutzer] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { data: benutzer = [], isLoading, error: usersError } = useUsers();
+  const { data: currentUser } = useMe();
+  const createMutation = useCreateUser();
+  const updateMutation = useUpdateUser();
+  const deleteMutation = useDeleteUser();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [formData, setFormData] = useState<CreateUserData>({
-    email: "",
-    password: "",
-    name: "",
-    initialen: "",
-    rolle: "monteur",
+
+  const form = useForm<UserFormData>({
+    resolver: zodResolver(userSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      name: "",
+      initialen: "",
+      rolle: "monteur",
+    },
   });
 
-  // Formular zurücksetzen
-  const resetForm = () => {
-    setFormData({
+  const error = usersError ? (usersError as Error).message : null;
+
+  // Dialog öffnen für neuen Benutzer
+  const handleNewUser = () => {
+    form.reset({
       email: "",
       password: "",
       name: "",
@@ -58,20 +88,15 @@ export function BenutzerVerwaltung() {
       rolle: "monteur",
     });
     setEditingUser(null);
-  };
-
-  // Dialog öffnen für neuen Benutzer
-  const handleNewUser = () => {
-    resetForm();
     setIsDialogOpen(true);
   };
 
   // Dialog öffnen für Bearbeitung
   const handleEditUser = (user: User) => {
     setEditingUser(user);
-    setFormData({
+    form.reset({
       email: user.email || "",
-      password: "", // Passwort nicht vorausfüllen
+      password: "",
       name: user.name,
       initialen: user.initialen,
       rolle: user.rolle,
@@ -79,65 +104,36 @@ export function BenutzerVerwaltung() {
     setIsDialogOpen(true);
   };
 
-  // Lade Benutzer vom Backend
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const [usersData, userData] = await Promise.all([
-          userApi.getAll(),
-          authApi.getMe().catch(() => null),
-        ]);
-        setBenutzer(usersData);
-        setCurrentUser(userData as User | null);
-      } catch (err: any) {
-        console.error("Error loading users:", err);
-        setError(err.message || "Fehler beim Laden der Benutzer");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
-
   // Benutzer speichern (erstellen oder aktualisieren)
-  const handleSave = async () => {
+  const onSubmit = async (data: UserFormData) => {
     try {
-      setError(null);
-
       if (editingUser) {
-        // Aktualisiere bestehenden Benutzer
-        const updateData: UpdateUserData = {
-          email: formData.email,
-          name: formData.name,
-          initialen: formData.initialen,
-          rolle: formData.rolle,
+        const updateData: any = {
+          email: data.email,
+          name: data.name,
+          initialen: data.initialen,
+          rolle: data.rolle,
         };
-        
-        // Nur Passwort hinzufügen, wenn es eingegeben wurde
-        if (formData.password && formData.password.length > 0) {
-          updateData.password = formData.password;
+        if (data.password && data.password.length > 0) {
+          updateData.password = data.password;
         }
-
-        await userApi.update(editingUser.id, updateData);
+        await updateMutation.mutateAsync({
+          id: editingUser.id,
+          data: updateData,
+        });
       } else {
-        // Erstelle neuen Benutzer
-        if (!formData.password || formData.password.length < 6) {
-          setError("Passwort muss mindestens 6 Zeichen lang sein");
+        if (!data.password || data.password.length < 6) {
+          form.setError("password", { message: "Passwort muss mindestens 6 Zeichen lang sein" });
           return;
         }
-        await userApi.create(formData);
+        await createMutation.mutateAsync(data);
       }
-
-      // Lade Benutzer neu
-      const usersData = await userApi.getAll();
-      setBenutzer(usersData);
       setIsDialogOpen(false);
-      resetForm();
+      form.reset();
     } catch (err: any) {
-      console.error("Error saving user:", err);
-      setError(err.message || "Fehler beim Speichern des Benutzers");
+      form.setError("root", {
+        message: err.message || "Fehler beim Speichern des Benutzers",
+      });
     }
   };
 
@@ -148,15 +144,9 @@ export function BenutzerVerwaltung() {
     }
 
     try {
-      setError(null);
-      await userApi.delete(id);
-      
-      // Lade Benutzer neu
-      const usersData = await userApi.getAll();
-      setBenutzer(usersData);
+      await deleteMutation.mutateAsync(id);
     } catch (err: any) {
-      console.error("Error deleting user:", err);
-      setError(err.message || "Fehler beim Löschen des Benutzers");
+      alert("Fehler beim Löschen: " + (err.message || "Unbekannter Fehler"));
     }
   };
 
@@ -205,88 +195,134 @@ export function BenutzerVerwaltung() {
                   : "Erstellen Sie einen neuen Benutzer mit E-Mail, Passwort und Rolle."}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">E-Mail *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    placeholder="benutzer@example.com"
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>E-Mail *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="email"
+                            placeholder="benutzer@example.com"
+                            disabled={createMutation.isPending || updateMutation.isPending}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Passwort {editingUser ? "(optional)" : "*"}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="password"
+                            placeholder={editingUser ? "Leer lassen zum Beibehalten" : "Mindestens 6 Zeichen"}
+                            disabled={createMutation.isPending || updateMutation.isPending}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">
-                    Passwort {editingUser ? "(optional)" : "*"}
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    placeholder={editingUser ? "Leer lassen zum Beibehalten" : "Mindestens 6 Zeichen"}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Max Mustermann"
+                            disabled={createMutation.isPending || updateMutation.isPending}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="initialen"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Initialen *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="MM"
+                            maxLength={10}
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                            disabled={createMutation.isPending || updateMutation.isPending}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="Max Mustermann"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="initialen">Initialen *</Label>
-                  <Input
-                    id="initialen"
-                    value={formData.initialen}
-                    onChange={(e) =>
-                      setFormData({ ...formData, initialen: e.target.value.toUpperCase() })
-                    }
-                    placeholder="MM"
-                    maxLength={10}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="rolle">Rolle *</Label>
-                <Select
-                  value={formData.rolle}
-                  onValueChange={(value: UserRole) =>
-                    setFormData({ ...formData, rolle: value })
-                  }
-                >
-                  <SelectTrigger id="rolle">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Administrator</SelectItem>
-                    <SelectItem value="monteur">Monteur</SelectItem>
-                    <SelectItem value="technische_abnahme">Technische Abnahme</SelectItem>
-                    <SelectItem value="endabnahme">Endabnahme</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button onClick={handleSave}>
-                {editingUser ? "Aktualisieren" : "Erstellen"}
-              </Button>
-            </DialogFooter>
+                <FormField
+                  control={form.control}
+                  name="rolle"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rolle *</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={createMutation.isPending || updateMutation.isPending}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="admin">Administrator</SelectItem>
+                          <SelectItem value="monteur">Monteur</SelectItem>
+                          <SelectItem value="technische_abnahme">Technische Abnahme</SelectItem>
+                          <SelectItem value="endabnahme">Endabnahme</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.formState.errors.root && (
+                  <p className="text-sm text-red-500">{form.formState.errors.root.message}</p>
+                )}
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    Abbrechen
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    {editingUser ? "Aktualisieren" : "Erstellen"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
