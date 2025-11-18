@@ -3,13 +3,14 @@
 -- In Production sollten diese geändert werden!
 
 -- Users (Passwort-Hash für "password123")
--- Rollen: admin, monteur, technische_abnahme, endabnahme
+-- Rollen werden zunächst als 'mitarbeiter' erstellt und dann durch Migration 011 aktualisiert
+-- Berechtigungen werden gesetzt, damit Migration 011 die Rollen korrekt zuordnen kann
 INSERT INTO users (id, email, password_hash, name, initialen, rolle, berechtigungen) VALUES
 ('550e8400-e29b-41d4-a716-446655440001', 'stefan.haering@schalti.de', '$2b$10$rOzJqJqJqJqJqJqJqJqJqOqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJq', 'Stefan Häring', 'SH', 'admin', '[]'::jsonb),
-('550e8400-e29b-41d4-a716-446655440002', 'jamie.szymiczek@schalti.de', '$2b$10$rOzJqJqJqJqJqJqJqJqJqOqJqJqJqJqJqJqJqJqJqJqJqJqJqJq', 'Jamie Szymiczek', 'JS', 'technische_abnahme', '[]'::jsonb),
-('550e8400-e29b-41d4-a716-446655440003', 'michael.weber@schalti.de', '$2b$10$rOzJqJqJqJqJqJqJqJqJqOqJqJqJqJqJqJqJqJqJqJqJqJqJqJq', 'Michael Weber', 'MW', 'technische_abnahme', '[]'::jsonb),
-('550e8400-e29b-41d4-a716-446655440004', 'thomas.mueller@schalti.de', '$2b$10$rOzJqJqJqJqJqJqJqJqJqOqJqJqJqJqJqJqJqJqJqJqJqJqJq', 'Thomas Müller', 'TM', 'endabnahme', '[]'::jsonb),
-('550e8400-e29b-41d4-a716-446655440005', 'anna.schmidt@schalti.de', '$2b$10$rOzJqJqJqJqJqJqJqJqJqOqJqJqJqJqJqJqJqJqJqJqJqJqJq', 'Anna Schmidt', 'AS', 'monteur', '[]'::jsonb)
+('550e8400-e29b-41d4-a716-446655440002', 'jamie.szymiczek@schalti.de', '$2b$10$rOzJqJqJqJqJqJqJqJqJqOqJqJqJqJqJqJqJqJqJqJqJqJqJqJq', 'Jamie Szymiczek', 'JS', 'mitarbeiter', '["abnahme"]'::jsonb),
+('550e8400-e29b-41d4-a716-446655440003', 'michael.weber@schalti.de', '$2b$10$rOzJqJqJqJqJqJqJqJqJqOqJqJqJqJqJqJqJqJqJqJqJqJqJqJq', 'Michael Weber', 'MW', 'mitarbeiter', '["abnahme"]'::jsonb),
+('550e8400-e29b-41d4-a716-446655440004', 'thomas.mueller@schalti.de', '$2b$10$rOzJqJqJqJqJqJqJqJqJqOqJqJqJqJqJqJqJqJqJqJqJqJqJq', 'Thomas Müller', 'TM', 'mitarbeiter', '["endabnahme"]'::jsonb),
+('550e8400-e29b-41d4-a716-446655440005', 'anna.schmidt@schalti.de', '$2b$10$rOzJqJqJqJqJqJqJqJqJqOqJqJqJqJqJqJqJqJqJqJqJqJqJq', 'Anna Schmidt', 'AS', 'mitarbeiter', '[]'::jsonb)
 ON CONFLICT (email) DO NOTHING;
 
 -- Projekte
