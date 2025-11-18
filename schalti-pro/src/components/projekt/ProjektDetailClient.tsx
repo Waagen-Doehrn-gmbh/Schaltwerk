@@ -8,7 +8,7 @@ import { ProtokollForm } from "@/components/protokoll/ProtokollForm";
 import { ActivityList } from "@/components/protokoll/ActivityList";
 import { ComponentsList } from "@/components/komponenten/ComponentsList";
 import { ProjectChat } from "@/components/projekt/ProjectChat";
-import { protokollApi, komponenteApi, projektApi, chatApi, authApi } from "@/lib/api";
+import { useMe, useChatByProjekt, useCreateProtokoll, useUpdateKomponente, useUpdateProjekt } from "@/lib/hooks";
 import { formatStunden } from "@/lib/utils";
 import { differenceInDays } from "date-fns";
 import type { Projekt, Arbeitsprotokoll, Komponente, ProtokollFormData } from "@/types";
@@ -43,35 +43,13 @@ export function ProjektDetailClient({
     setKomponenten(initialKomponenten);
   }, [initialKomponenten]);
 
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
-
-  // Aktuellen Benutzer laden
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const user = await authApi.getMe();
-        setCurrentUser(user);
-      } catch (error) {
-        console.error("Error loading user:", error);
-      }
-    };
-    loadUser();
-  }, []);
-
-  // Chat-Nachrichten laden
-  useEffect(() => {
-    const loadChatMessages = async () => {
-      try {
-        const messages = await chatApi.getByProjekt(projekt.id);
-        setChatMessages(messages);
-      } catch (error) {
-        console.error("Error loading chat messages:", error);
-        setChatMessages([]);
-      }
-    };
-    loadChatMessages();
-  }, [projekt.id]);
+  const { data: currentUser } = useMe();
+  const { data: chatMessages = [] } = useChatByProjekt(projekt.id);
+  
+  // Mutations
+  const createProtokollMutation = useCreateProtokoll();
+  const updateKomponenteMutation = useUpdateKomponente();
+  const updateProjektMutation = useUpdateProjekt();
 
   // Berechne aktualisierte Stats
   const aktualisierteStats = useMemo(() => {
@@ -120,9 +98,9 @@ export function ProjektDetailClient({
 
     // Normale Komponenten-Markierung: Protokoll erstellen
     try {
-      await komponenteApi.update(komponenteId, { status });
+      await updateKomponenteMutation.mutateAsync({ id: komponenteId, data: { status } });
       
-      const neuesProtokoll = await protokollApi.create({
+      const neuesProtokoll = await createProtokollMutation.mutateAsync({
         aufgabe: "Komponente abgeschlossen",
         details: `${komponente.name} (${komponente.artikelNummer}) wurde abgeschlossen`,
         zeitaufwand: 0, // Keine Zeit, da automatisch
@@ -179,7 +157,7 @@ export function ProjektDetailClient({
 
     // Neues Protokoll über API erstellen
     try {
-      const neuesProtokoll = await protokollApi.create({
+      const neuesProtokoll = await createProtokollMutation.mutateAsync({
         aufgabe: formData.aufgabe,
         details: formData.details || undefined,
         zeitaufwand: formData.zeitaufwand,
@@ -206,7 +184,7 @@ export function ProjektDetailClient({
       // Komponenten-Status aktualisieren, falls welche abgeschlossen wurden
       if (abgeschlosseneKomponentenIds.length > 0) {
         for (const komponenteId of abgeschlosseneKomponentenIds) {
-          await komponenteApi.update(komponenteId, { status: "abgeschlossen" });
+          await updateKomponenteMutation.mutateAsync({ id: komponenteId, data: { status: "abgeschlossen" } });
           setKomponenten((prev) =>
             prev.map((k) =>
               k.id === komponenteId ? { ...k, status: "abgeschlossen" } : k
@@ -223,7 +201,7 @@ export function ProjektDetailClient({
   // Callback: Schaltschranknummer wurde geändert
   const handleSchaltschrankNummerChange = async (nummer: string | undefined) => {
     try {
-      await projektApi.update(projekt.id, { schaltschrankNummer: nummer });
+      await updateProjektMutation.mutateAsync({ id: projekt.id, data: { schaltschrankNummer: nummer } });
       setProjekt((prev) => ({
         ...prev,
         schaltschrankNummer: nummer,
@@ -302,7 +280,7 @@ export function ProjektDetailClient({
       <ProjectChat
         projektId={projekt.id}
         messages={chatMessages}
-        currentUser={currentUser}
+        currentUser={currentUser || undefined}
         onSendMessage={(text, imageUrl) => {
           // In a real app, this would send the message to the server
           console.log("Sending message:", text, imageUrl ? "with image" : "text only");
