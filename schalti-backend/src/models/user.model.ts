@@ -1,7 +1,7 @@
 import { pool } from "../config/database";
 import { hashPassword, comparePassword } from "../utils/password.util";
 
-export type UserRole = "admin" | "monteur" | "technische_abnahme" | "endabnahme";
+export type UserRole = "admin" | "analyse" | "endabnahme" | "technische_abnahme" | "monteur";
 
 export interface User {
   id: string;

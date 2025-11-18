@@ -16,6 +16,8 @@ const migrations = [
   "010_add_komponenten_ids_to_projekte.sql",
   "011_update_user_roles.sql",
   "012_set_stefan_admin.sql",
+  "013_add_erforderliche_rolle_to_aufgaben.sql",
+  "014_add_analyse_role.sql",
 ];
 
 async function runMigrations() {

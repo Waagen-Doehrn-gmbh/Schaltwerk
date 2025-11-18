@@ -41,7 +41,7 @@ const userSchema = z.object({
   password: z.string().optional(),
   name: z.string().min(1, "Name ist erforderlich"),
   initialen: z.string().min(1, "Initialen sind erforderlich").max(10),
-  rolle: z.enum(["admin", "monteur", "technische_abnahme", "endabnahme"]),
+  rolle: z.enum(["admin", "analyse", "endabnahme", "technische_abnahme", "monteur"]),
 }).refine((data) => {
   // Passwort ist nur beim Erstellen erforderlich
   return true;
@@ -51,9 +51,10 @@ type UserFormData = z.infer<typeof userSchema>;
 
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Administrator",
-  monteur: "Monteur",
-  technische_abnahme: "Technische Abnahme",
+  analyse: "Analyse",
   endabnahme: "Endabnahme",
+  technische_abnahme: "Technische Abnahme",
+  monteur: "Monteur",
 };
 
 export function BenutzerVerwaltung() {
@@ -293,9 +294,10 @@ export function BenutzerVerwaltung() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="admin">Administrator</SelectItem>
-                          <SelectItem value="monteur">Monteur</SelectItem>
-                          <SelectItem value="technische_abnahme">Technische Abnahme</SelectItem>
+                          <SelectItem value="analyse">Analyse</SelectItem>
                           <SelectItem value="endabnahme">Endabnahme</SelectItem>
+                          <SelectItem value="technische_abnahme">Technische Abnahme</SelectItem>
+                          <SelectItem value="monteur">Monteur</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
