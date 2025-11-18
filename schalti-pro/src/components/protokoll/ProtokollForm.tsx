@@ -1,0 +1,717 @@
+"use client";
+
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { aufgabeApi } from "@/lib/api";
+import { 
+  AbnahmeCheckliste, 
+  STANDARD_ABNAHME_CHECKLISTE,
+  ENDABNAHME_CHECKLISTE 
+} from "./AbnahmeCheckliste";
+import { AufgabenCheckliste } from "./AufgabenCheckliste";
+import type { ProtokollFormData, AbnahmeChecklisteItem, User, Arbeitsprotokoll, Checkliste, Komponente, Aufgabe } from "@/types";
+import { AlertCircle } from "lucide-react";
+import { useChecklistenOptional } from "@/components/verwaltung/ChecklistenContext";
+
+// Fallback: Checklisten wenn Context nicht verfügbar ist
+const getFallbackChecklisten = (): Checkliste[] => {
+  return [
+    {
+      id: "checkliste-1",
+      name: "Standard Technische Abnahme",
+      typ: "technisch",
+      items: STANDARD_ABNAHME_CHECKLISTE,
+    },
+    {
+      id: "checkliste-2",
+      name: "Standard Endabnahme",
+      typ: "endabnahme",
+      items: ENDABNAHME_CHECKLISTE,
+    },
+    {
+      id: "checkliste-grundplatte",
+      name: "Grundplatte Bestückt und Verdrahtet",
+      typ: "allgemein",
+      items: [
+        {
+          id: "gp-1",
+          text: "Hauptschalter 63A montiert und verdrahtet",
+          artikelNummer: "HS-63A-001",
+        },
+        {
+          id: "gp-2",
+          text: "Sicherungsautomaten 16A montiert und verdrahtet",
+          artikelNummer: "LS-16A-005",
+        },
+        {
+          id: "gp-3",
+          text: "Zeitschaltuhr montiert und verdrahtet",
+          artikelNummer: "ZT-001",
+        },
+        {
+          id: "gp-4",
+          text: "Schaltrelais 24V montiert und verdrahtet",
+          artikelNummer: "SR-24V-001",
+        },
+        {
+          id: "gp-5",
+          text: "Klemmenleisten montiert und verdrahtet",
+        },
+        {
+          id: "gp-6",
+          text: "Beschriftungen angebracht",
+        },
+      ],
+    },
+  ];
+};
+
+interface ProtokollFormProps {
+  projektId: string;
+  onSubmit?: (data: ProtokollFormData) => void;
+  currentUser?: User;
+  protokolle?: Arbeitsprotokoll[];
+  komponenten?: Komponente[]; // Verfügbare Komponenten
+  onKomponenteAktualisieren?: (komponenteId: string, status: "abgeschlossen", viaCheckliste: boolean) => void;
+}
+
+export function ProtokollForm({ 
+  projektId, 
+  onSubmit, 
+  currentUser, 
+  protokolle = [],
+  komponenten = [],
+  onKomponenteAktualisieren,
+}: ProtokollFormProps) {
+  const user = currentUser;
+  const [aufgaben, setAufgaben] = useState<Aufgabe[]>([]);
+  const [aufgabenLoading, setAufgabenLoading] = useState(true);
+  const [aufgabenError, setAufgabenError] = useState<string | null>(null);
+  const checklistenContext = useChecklistenOptional();
+  const fallbackChecklisten = useMemo(() => getFallbackChecklisten(), []);
+  
+  // Lade Aufgaben aus der API
+  useEffect(() => {
+    const loadAufgaben = async () => {
+      try {
+        setAufgabenLoading(true);
+        setAufgabenError(null);
+        const aufgabenData = await aufgabeApi.getAll();
+        setAufgaben(aufgabenData);
+      } catch (err: any) {
+        setAufgabenError(err.message || "Fehler beim Laden der Aufgaben");
+        console.error("Fehler beim Laden der Aufgaben:", err);
+      } finally {
+        setAufgabenLoading(false);
+      }
+    };
+    loadAufgaben();
+  }, []);
+
+  // Helper: Finde Aufgabe nach Name
+  const getAufgabeByName = (name: string): Aufgabe | undefined => {
+    return aufgaben.find((a) => a.name === name);
+  };
+
+  const checklisten = useMemo(() => {
+    // Kombiniere Context-Checklisten mit Fallback-Checklisten
+    // Entferne Duplikate (gleiche ID)
+    const contextChecklisten = checklistenContext?.checklisten || [];
+    const allChecklisten = [...contextChecklisten];
+    
+    // Füge Fallback-Checklisten hinzu, die nicht im Context sind
+    fallbackChecklisten.forEach((fallback) => {
+      if (!allChecklisten.some((c) => c.id === fallback.id)) {
+        allChecklisten.push(fallback);
+      }
+    });
+    
+    console.log("📋 Checklisten im ProtokollForm:", {
+      contextChecklisten: contextChecklisten.length,
+      fallbackChecklisten: fallbackChecklisten.length,
+      total: allChecklisten.length,
+      isLoading: checklistenContext?.isLoading,
+    });
+    console.log("📋 Checklisten-Details:", allChecklisten.map(c => ({
+      id: c.id,
+      idType: typeof c.id,
+      name: c.name,
+      itemsCount: c.items.length
+    })));
+    
+    return allChecklisten;
+  }, [checklistenContext?.checklisten, fallbackChecklisten, checklistenContext?.isLoading]);
+  
+  const kannTechnischeAbnahme = 
+    user?.rolle === "admin" || 
+    user?.rolle === "technische_abnahme" || 
+    user?.rolle === "endabnahme" ||
+    user?.berechtigungen?.includes("abnahme"); // Rückwärtskompatibilität
+  
+  const kannEndabnahme = 
+    user?.rolle === "admin" || 
+    user?.rolle === "endabnahme" ||
+    user?.berechtigungen?.includes("endabnahme"); // Rückwärtskompatibilität
+
+  const technischeAbnahmeBestanden = protokolle.some(
+    (protokoll) =>
+      protokoll.projektId === projektId &&
+      protokoll.aufgabe === "Technische Abnahme" &&
+      protokoll.abnahmeStatus === "bestanden" &&
+      protokoll.abnahmeTyp === "technisch"
+  );
+
+  const [formData, setFormData] = useState<ProtokollFormData>({
+    aufgabe: "",
+    details: "",
+    zeitaufwand: 0.5,
+  });
+  const [errors, setErrors] = useState<Partial<Record<keyof ProtokollFormData, string>>>({});
+  const [komponentenChecklistenFehler, setKomponentenChecklistenFehler] = useState<string>("");
+  const [showCheckliste, setShowCheckliste] = useState(false);
+  const [checkliste, setCheckliste] = useState<AbnahmeChecklisteItem[]>([]);
+  const [checklisteTitel, setChecklisteTitel] = useState<string>("");
+  const [isAbnahmeAufgabe, setIsAbnahmeAufgabe] = useState(false);
+  // Ref zum Abrufen des Status der Komponenten-Checklisten (wird nur beim Submit geprüft)
+  const komponentenChecklistenStatusRef = useRef<(() => { vollstaendig: boolean; unvollstaendige: string[] }) | null>(null);
+
+  // Aktualisiere Checkliste-Status automatisch wenn sich Checkliste ändert
+  useEffect(() => {
+    if (showCheckliste && checkliste.length > 0 && !isAbnahmeAufgabe) {
+      const allChecked = checkliste.every((item) => item.checked);
+      const status: "abgeschlossen" | "teilabschluss" = allChecked ? "abgeschlossen" : "teilabschluss";
+      setFormData((prev) => {
+        // Nur aktualisieren wenn sich der Wert ändert
+        if (prev.checklisteStatus === status) {
+          return prev;
+        }
+        return {
+          ...prev,
+          checklisteStatus: status,
+        };
+      });
+    } else if (!showCheckliste || isAbnahmeAufgabe) {
+      setFormData((prev) => {
+        // Nur aktualisieren wenn sich der Wert ändert
+        if (prev.checklisteStatus === undefined) {
+          return prev;
+        }
+        return {
+          ...prev,
+          checklisteStatus: undefined,
+        };
+      });
+    }
+  }, [checkliste, showCheckliste, isAbnahmeAufgabe]);
+
+  // Initialisiere Checkliste wenn Aufgabe ausgewählt wird
+  useEffect(() => {
+    if (!formData.aufgabe) {
+      setShowCheckliste(false);
+      setCheckliste([]);
+      setIsAbnahmeAufgabe(false);
+      return;
+    }
+
+    // Warte bis Checklisten geladen sind
+    if (checklistenContext?.isLoading) {
+      console.log("⏳ Warte auf Checklisten...");
+      return;
+    }
+
+    const aufgabe = getAufgabeByName(formData.aufgabe);
+    if (!aufgabe) {
+      console.log("❌ Aufgabe nicht gefunden:", formData.aufgabe);
+      setShowCheckliste(false);
+      setCheckliste([]);
+      setIsAbnahmeAufgabe(false);
+      return;
+    }
+
+    console.log("✅ Aufgabe gefunden:", {
+      name: aufgabe.name,
+      checklisteId: aufgabe.checklisteId,
+      verfügbareChecklisten: checklisten.length,
+    });
+
+    // Prüfe ob es eine Abnahme-Aufgabe ist
+    const istAbnahme = formData.aufgabe === "Technische Abnahme" || formData.aufgabe === "Endabnahme";
+    setIsAbnahmeAufgabe(istAbnahme);
+
+    if (istAbnahme) {
+      // Abnahme-Aufgaben: Spezielle Behandlung
+      if (formData.aufgabe === "Technische Abnahme") {
+        if (!kannTechnischeAbnahme) {
+          setFormData((prev) => ({ ...prev, aufgabe: "" }));
+          setErrors({ aufgabe: "Sie haben keine Berechtigung für Technische Abnahme" });
+          return;
+        }
+        
+        if (checkliste.length === 0) {
+          const initialCheckliste = STANDARD_ABNAHME_CHECKLISTE.map((item) => ({
+            ...item,
+            checked: false,
+          }));
+          setCheckliste(initialCheckliste);
+        }
+        setChecklisteTitel("Technische Abnahme - Checkliste");
+        setShowCheckliste(true);
+        setFormData((prev) => {
+          // Nur aktualisieren wenn sich der Wert ändert
+          if (prev.abnahmeTyp === "technisch") {
+            return prev;
+          }
+          return { ...prev, abnahmeTyp: "technisch" };
+        });
+      } else if (formData.aufgabe === "Endabnahme") {
+        if (!kannEndabnahme) {
+          setFormData((prev) => ({ ...prev, aufgabe: "" }));
+          setErrors({ aufgabe: "Sie haben keine Berechtigung für Endabnahme" });
+          return;
+        }
+        if (!technischeAbnahmeBestanden) {
+          setFormData((prev) => ({ ...prev, aufgabe: "" }));
+          setErrors({ 
+            aufgabe: "Endabnahme ist erst nach erfolgreicher Technischer Abnahme möglich" 
+          });
+          return;
+        }
+        
+        if (checkliste.length === 0) {
+          const initialCheckliste = ENDABNAHME_CHECKLISTE.map((item) => ({
+            ...item,
+            checked: false,
+          }));
+          setCheckliste(initialCheckliste);
+        }
+        setChecklisteTitel("Endabnahme - Checkliste");
+        setShowCheckliste(true);
+        setFormData((prev) => {
+          // Nur aktualisieren wenn sich der Wert ändert
+          if (prev.abnahmeTyp === "endabnahme") {
+            return prev;
+          }
+          return { ...prev, abnahmeTyp: "endabnahme" };
+        });
+      }
+    } else {
+      // Normale Aufgaben: Prüfe ob Checkliste zugeordnet ist
+      if (aufgabe.checklisteId) {
+        console.log("🔍 Suche Checkliste:", {
+          aufgabeName: aufgabe.name,
+          checklisteId: aufgabe.checklisteId,
+          checklisteIdType: typeof aufgabe.checklisteId,
+          checklistenAnzahl: checklisten.length,
+        });
+        console.log("📋 ALLE CHECKLISTEN:", JSON.stringify(checklisten.map(c => ({ id: c.id, name: c.name })), null, 2));
+        console.log("📋 Gesuchte ID:", aufgabe.checklisteId);
+        console.log("📋 Verfügbare Checklisten-IDs (DETAILS):");
+        checklisten.forEach((c, index) => {
+          const strictMatch = c.id === aufgabe.checklisteId;
+          const looseMatch = String(c.id).trim() === String(aufgabe.checklisteId).trim();
+          console.log(`   [${index}] ID: "${c.id}" | Name: "${c.name}" | Match: ${strictMatch || looseMatch ? '✅' : '❌'}`);
+          if (!strictMatch && !looseMatch) {
+            console.log(`      ⚠️ Kein Match: "${c.id}" !== "${aufgabe.checklisteId}"`);
+            console.log(`      Typen: ${typeof c.id} vs ${typeof aufgabe.checklisteId}`);
+            console.log(`      Längen: ${c.id?.length || 'undefined'} vs ${aufgabe.checklisteId?.length || 'undefined'}`);
+          }
+        });
+        const zugeordneteCheckliste = checklisten.find((c) => {
+          // Prüfe sowohl strikte als auch lose Übereinstimmung
+          const strictMatch = c.id === aufgabe.checklisteId;
+          const looseMatch = String(c.id).trim() === String(aufgabe.checklisteId).trim();
+          const match = strictMatch || looseMatch;
+          if (!match) {
+            console.log(`  ⚠️ ID-Vergleich: "${c.id}" (${typeof c.id}) !== "${aufgabe.checklisteId}" (${typeof aufgabe.checklisteId})`);
+          } else {
+            console.log(`  ✅ ID-Übereinstimmung gefunden: "${c.id}" === "${aufgabe.checklisteId}"`);
+          }
+          return match;
+        });
+        console.log("✅ Gefundene Checkliste:", zugeordneteCheckliste ? {
+          id: zugeordneteCheckliste.id,
+          name: zugeordneteCheckliste.name,
+          items: zugeordneteCheckliste.items.length
+        } : "NICHT GEFUNDEN");
+        if (zugeordneteCheckliste) {
+          // Prüfe ob es bereits Protokolle mit dieser Aufgabe gibt
+          const vorherigeProtokolle = protokolle.filter(
+            (p) => p.projektId === projektId && p.aufgabe === formData.aufgabe && p.abnahmeCheckliste
+          );
+          
+          // Sammle alle bereits abgehakten Punkte und Bilder aus vorherigen Protokollen
+          const bereitsAbgehakt = new Set<string>();
+          const punktDaten = new Map<string, { checked: boolean; bilder?: string[] }>();
+          
+          vorherigeProtokolle.forEach((protokoll) => {
+            if (protokoll.abnahmeCheckliste) {
+              protokoll.abnahmeCheckliste.forEach((item) => {
+                if (item.checked) {
+                  bereitsAbgehakt.add(item.id);
+                }
+                // Sammle auch Bilder und Status für jeden Punkt
+                if (!punktDaten.has(item.id)) {
+                  punktDaten.set(item.id, {
+                    checked: item.checked,
+                    bilder: item.bilder ? [...item.bilder] : undefined,
+                  });
+                } else {
+                  // Wenn Punkt bereits existiert, füge Bilder hinzu (falls vorhanden)
+                  const existing = punktDaten.get(item.id)!;
+                  if (item.bilder && item.bilder.length > 0) {
+                    existing.bilder = [...(existing.bilder || []), ...item.bilder];
+                  }
+                }
+              });
+            }
+          });
+          
+          // Initialisiere Checkliste nur wenn sie noch nicht existiert oder leer ist
+          // Das verhindert, dass die Checkliste zurückgesetzt wird, wenn sich die Komponenten ändern
+          if (checkliste.length === 0) {
+            const initialCheckliste = zugeordneteCheckliste.items.map((item) => {
+              const punktInfo = punktDaten.get(item.id);
+              return {
+                ...item,
+                checked: punktInfo?.checked || bereitsAbgehakt.has(item.id),
+                bilder: punktInfo?.bilder,
+              };
+            });
+            setCheckliste(initialCheckliste);
+            console.log("✅ Checkliste initialisiert:", initialCheckliste.length, "Items");
+          }
+          setChecklisteTitel(`${aufgabe.name} - Checkliste`);
+          setShowCheckliste(true);
+        } else {
+          console.log("❌ Checkliste nicht gefunden für ID:", aufgabe.checklisteId);
+          setShowCheckliste(false);
+          setCheckliste([]);
+        }
+      } else {
+        console.log("❌ Aufgabe hat keine checklisteId:", aufgabe.name);
+        setShowCheckliste(false);
+        setCheckliste([]);
+      }
+      
+      // Reset Abnahme-Status wenn normale Aufgabe ausgewählt wird
+      if (formData.abnahmeStatus || formData.abnahmeTyp) {
+        setFormData((prev) => {
+          // Nur aktualisieren wenn sich etwas ändert
+          if (prev.abnahmeStatus === undefined && prev.abnahmeTyp === undefined) {
+            return prev;
+          }
+          return { 
+            ...prev, 
+            abnahmeStatus: undefined,
+            abnahmeTyp: undefined 
+          };
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.aufgabe, kannTechnischeAbnahme, kannEndabnahme, protokolle, projektId, checklisten, checklistenContext?.isLoading]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const newErrors: Partial<Record<keyof ProtokollFormData, string>> = {};
+    if (!formData.aufgabe) {
+      newErrors.aufgabe = "Aufgabe ist erforderlich";
+    }
+    if (formData.zeitaufwand <= 0) {
+      newErrors.zeitaufwand = "Zeitaufwand muss größer als 0 sein";
+    }
+
+    // Bei Abnahme-Aufgaben: Prüfe ob Checkliste abgeschlossen wurde
+    if (isAbnahmeAufgabe && !formData.abnahmeStatus) {
+      newErrors.aufgabe = "Bitte schließen Sie die Abnahme ab";
+    }
+
+    // Prüfe ob alle Komponenten-Checklisten vollständig sind (nur wenn Checkliste angezeigt wird)
+    let komponentenChecklistenFehlerText = "";
+    if (showCheckliste && !isAbnahmeAufgabe && komponentenChecklistenStatusRef.current) {
+      const status = komponentenChecklistenStatusRef.current();
+      if (!status.vollstaendig && status.unvollstaendige.length > 0) {
+        komponentenChecklistenFehlerText = `Das Protokoll kann nicht erstellt werden, da die Checklisten für folgende Komponenten nicht vollständig abgearbeitet wurden: ${status.unvollstaendige.join(", ")}`;
+        setKomponentenChecklistenFehler(komponentenChecklistenFehlerText);
+      } else {
+        setKomponentenChecklistenFehler("");
+      }
+    } else {
+      setKomponentenChecklistenFehler("");
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    // Prüfe ob Komponenten-Checklisten-Fehler vorhanden ist
+    if (komponentenChecklistenFehlerText) {
+      setErrors(newErrors);
+      return;
+    }
+
+    // Prüfe Checkliste-Status für allgemeine Checklisten
+    let checklisteStatus: "abgeschlossen" | "teilabschluss" | undefined = undefined;
+    if (showCheckliste && checkliste.length > 0 && !isAbnahmeAufgabe) {
+      const allChecked = checkliste.every((item) => item.checked);
+      checklisteStatus = allChecked ? "abgeschlossen" : "teilabschluss";
+    }
+
+    // Submit mit Checkliste-Daten
+    const submitData: ProtokollFormData = {
+      ...formData,
+      abnahmeCheckliste: showCheckliste && checkliste.length > 0 ? checkliste : undefined,
+      checklisteStatus,
+    };
+
+    console.log("Protokoll erstellt:", { ...submitData, projektId });
+    if (onSubmit) {
+      onSubmit(submitData);
+    }
+
+    // Reset
+    setFormData({
+      aufgabe: "",
+      details: "",
+      zeitaufwand: 0.5,
+    });
+    setCheckliste([]);
+    setShowCheckliste(false);
+    setIsAbnahmeAufgabe(false);
+    setErrors({});
+    setKomponentenChecklistenFehler("");
+    komponentenChecklistenStatusRef.current = null;
+    
+    let statusText = "Protokoll erstellt!";
+    if (submitData.abnahmeStatus === "bestanden") {
+      statusText = "Abnahme bestanden!";
+    } else if (submitData.abnahmeStatus === "verweigert") {
+      statusText = "Abnahme verweigert - Nacharbeit erforderlich!";
+    } else if (submitData.checklisteStatus === "teilabschluss") {
+      statusText = "Protokoll erstellt (Teilabschluss) - Beim nächsten Mal werden bereits erledigte Punkte vorausgefüllt!";
+    } else if (submitData.checklisteStatus === "abgeschlossen") {
+      statusText = "Protokoll erstellt - Checkliste vollständig abgeschlossen!";
+    }
+    alert(statusText);
+  };
+
+  const handleAbnahmeAbschließen = (status: "bestanden" | "verweigert") => {
+    const aufgabeName = formData.aufgabe === "Endabnahme" 
+      ? "Endabnahme" 
+      : "Technische Abnahme";
+    
+    const statusDetails = status === "bestanden"
+      ? `${aufgabeName} bestanden. Alle ${checkliste.length} Prüfpunkte erfüllt.`
+      : `${aufgabeName} verweigert. Nacharbeit erforderlich. Nicht erfüllte Punkte: ${checkliste.filter(item => !item.checked).length}`;
+    
+    setFormData((prev) => ({
+      ...prev,
+      abnahmeStatus: status,
+      details: prev.details || statusDetails,
+    }));
+  };
+
+  const getVerfuegbareAufgaben = () => {
+    return aufgaben.filter((aufgabe) => {
+      if (aufgabe.name === "Technische Abnahme") {
+        return kannTechnischeAbnahme;
+      }
+      if (aufgabe.name === "Endabnahme") {
+        return kannEndabnahme && technischeAbnahmeBestanden;
+      }
+      return true;
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Neues Arbeitsprotokoll</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {aufgabenError && (
+          <div className="mb-4 p-3 rounded-lg border bg-red-50 border-red-200">
+            <p className="text-sm text-red-800">
+              Fehler beim Laden der Aufgaben: {aufgabenError}
+            </p>
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Aufgabe */}
+          <div>
+            <Label htmlFor="aufgabe">Aufgabe *</Label>
+            <Select
+              value={formData.aufgabe}
+              onValueChange={(value) => {
+                setFormData({ ...formData, aufgabe: value });
+                setErrors({ ...errors, aufgabe: undefined });
+              }}
+              disabled={aufgabenLoading}
+            >
+              <SelectTrigger id="aufgabe" className={errors.aufgabe ? "border-red-500" : ""}>
+                <SelectValue placeholder={aufgabenLoading ? "Lade Aufgaben..." : "Aufgabe auswählen"} />
+              </SelectTrigger>
+              <SelectContent>
+                {aufgabenLoading ? (
+                  <SelectItem value="loading" disabled>Lade Aufgaben...</SelectItem>
+                ) : aufgaben.length === 0 ? (
+                  <SelectItem value="no-tasks" disabled>Keine Aufgaben verfügbar</SelectItem>
+                ) : (
+                  getVerfuegbareAufgaben().map((aufgabe) => (
+                    <SelectItem key={aufgabe.id} value={aufgabe.name}>
+                      {aufgabe.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+              {(!kannTechnischeAbnahme || !kannEndabnahme || !technischeAbnahmeBestanden) && (
+                <p className="text-xs text-slate-500 dark:text-muted-foreground mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {!kannTechnischeAbnahme && !kannEndabnahme && (
+                    <span>Sie haben keine Berechtigung für Abnahme-Aufgaben</span>
+                  )}
+                  {!kannTechnischeAbnahme && kannEndabnahme && (
+                    <span>Technische Abnahme erfordert spezielle Berechtigung</span>
+                  )}
+                  {kannTechnischeAbnahme && !kannEndabnahme && (
+                    <span>Endabnahme erfordert spezielle Berechtigung</span>
+                  )}
+                  {kannEndabnahme && !technischeAbnahmeBestanden && (
+                    <span>Endabnahme ist erst nach erfolgreicher Technischer Abnahme möglich</span>
+                  )}
+                </p>
+              )}
+            </Select>
+            {errors.aufgabe && (
+              <p className="text-sm text-red-500 mt-1">{errors.aufgabe}</p>
+            )}
+          </div>
+
+          {/* Checkliste */}
+          {showCheckliste && (
+            <div>
+              {isAbnahmeAufgabe ? (
+                <AbnahmeCheckliste
+                  checkliste={checkliste}
+                  onChecklisteChange={setCheckliste}
+                  onAbnahmeAbschließen={handleAbnahmeAbschließen}
+                  titel={checklisteTitel}
+                />
+               ) : (
+                 <AufgabenCheckliste
+                   checkliste={checkliste}
+                   onChecklisteChange={setCheckliste}
+                   titel={checklisteTitel}
+                   komponenten={komponenten}
+                   onKomponenteAktualisieren={onKomponenteAktualisieren}
+                   getKomponentenChecklistenStatus={komponentenChecklistenStatusRef}
+                 />
+               )}
+               {formData.checklisteStatus && (
+                 <div className="mt-3 p-3 rounded-lg border bg-slate-50 dark:bg-muted">
+                   <p className="text-sm font-medium text-slate-700 dark:text-foreground">
+                     Checkliste-Status:{" "}
+                     <span
+                       className={
+                         formData.checklisteStatus === "abgeschlossen"
+                           ? "text-green-700 font-semibold"
+                           : "text-yellow-700 font-semibold"
+                       }
+                     >
+                       {formData.checklisteStatus === "abgeschlossen"
+                         ? "Abgeschlossen ✓"
+                         : "Teilabschluss ⚠"}
+                     </span>
+                   </p>
+                   {formData.checklisteStatus === "teilabschluss" && (
+                     <p className="text-xs text-yellow-700 mt-1">
+                       Nicht alle Punkte sind abgehakt. Beim nächsten Mal werden die bereits erledigten Punkte vorausgefüllt.
+                     </p>
+                   )}
+                 </div>
+               )}
+               {formData.abnahmeStatus && (
+                <div className="mt-3 p-3 rounded-lg border bg-slate-50 dark:bg-muted">
+                  <p className="text-sm font-medium text-slate-700 dark:text-foreground">
+                    Abnahme-Status:{" "}
+                    <span
+                      className={
+                        formData.abnahmeStatus === "bestanden"
+                          ? "text-green-700 font-semibold"
+                          : "text-red-700 font-semibold"
+                      }
+                    >
+                      {formData.abnahmeStatus === "bestanden"
+                        ? "Bestanden ✓"
+                        : "Verweigert ✗"}
+                    </span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Details */}
+          <div>
+            <Label htmlFor="details">Details (optional)</Label>
+            <Textarea
+              id="details"
+              value={formData.details}
+              onChange={(e) =>
+                setFormData({ ...formData, details: e.target.value })
+              }
+              placeholder="Zusätzliche Informationen..."
+              rows={3}
+            />
+          </div>
+
+          {/* Zeitaufwand */}
+          <div>
+            <Label htmlFor="zeitaufwand">Zeitaufwand (Stunden) *</Label>
+            <Input
+              id="zeitaufwand"
+              type="number"
+              step="0.5"
+              min="0.5"
+              value={formData.zeitaufwand}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value) || 0;
+                setFormData({ ...formData, zeitaufwand: value });
+                setErrors({ ...errors, zeitaufwand: undefined });
+              }}
+              className={errors.zeitaufwand ? "border-red-500" : ""}
+            />
+            {errors.zeitaufwand && (
+              <p className="text-sm text-red-500 mt-1">{errors.zeitaufwand}</p>
+            )}
+          </div>
+
+          {/* Komponenten-Checklisten-Fehler */}
+          {komponentenChecklistenFehler && (
+            <div className="p-3 rounded-lg border bg-red-50 border-red-200">
+              <p className="text-sm text-red-800">{komponentenChecklistenFehler}</p>
+            </div>
+          )}
+
+          {/* Submit */}
+          <Button type="submit" className="w-full">
+            Protokoll erstellen
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
