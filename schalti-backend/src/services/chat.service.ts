@@ -2,6 +2,10 @@ import { ChatModel, ChatMessage, ChatMessageWithUser } from "../models/chat.mode
 import { CreateChatMessageInput } from "../models/chat.model";
 
 export class ChatService {
+  static async getMessageById(id: string): Promise<ChatMessageWithUser | null> {
+    return ChatModel.findById(id);
+  }
+
   static async getMessagesByProjekt(
     projektId: string
   ): Promise<ChatMessageWithUser[]> {

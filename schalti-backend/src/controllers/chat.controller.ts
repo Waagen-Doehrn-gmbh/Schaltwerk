@@ -27,6 +27,18 @@ export class ChatController {
         ...data,
         userId: req.user.id,
       });
+      
+      // Webhook zu n8n senden (asynchron, nicht blockierend)
+      if (process.env.N8N_WEBHOOK_URL) {
+        fetch(`${process.env.N8N_WEBHOOK_URL}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageId: message.id }),
+        }).catch((error) => {
+          console.error("Fehler beim Senden des Webhooks zu n8n:", error);
+        });
+      }
+      
       res.status(201).json(message);
     } catch (error: any) {
       if (error instanceof AppError) {

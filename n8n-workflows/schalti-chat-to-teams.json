@@ -1,0 +1,115 @@
+{
+  "name": "Schalti Chat → Teams",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-chat",
+      "name": "Webhook - Chat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "chat-webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"received\": $json.body } }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://localhost:7001/api/webhook/chat",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messageId",
+              "value": "={{ $json.body.messageId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-request",
+      "name": "HTTP Request - Hole Chat Daten",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TEAMS_CHAT_ID }}",
+        "message": "=💬 **Neue Chat-Nachricht**\n\n**Projekt:** {{ $json.projektName }}\n**Schaltschrank-Nr.:** {{ $json.schaltschrankNummer }}\n**Von:** {{ $json.userName }}\n\n{{ $json.text }}\n\n{{ $json.imageUrl ? '📷 [Bild anzeigen](' + $json.imageUrl + ')' : '' }}",
+        "options": {}
+      },
+      "id": "teams-message",
+      "name": "Teams - Sende Nachricht",
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "1",
+          "name": "Microsoft Teams account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Chat": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Hole Chat Daten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Hole Chat Daten": {
+      "main": [
+        [
+          {
+            "node": "Teams - Sende Nachricht",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Teams - Sende Nachricht": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+

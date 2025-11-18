@@ -13,6 +13,7 @@ import chatRoutes from "./routes/chat.routes";
 import checklisteRoutes from "./routes/checkliste.routes";
 import aufgabeRoutes from "./routes/aufgabe.routes";
 import userRoutes from "./routes/user.routes";
+import webhookRoutes from "./routes/webhook.routes";
 
 const app: Express = express();
 
@@ -39,6 +40,7 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/checklisten", checklisteRoutes);
 app.use("/api/aufgaben", aufgabeRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/webhook", webhookRoutes);
 
 // Error Handling
 app.use(errorMiddleware);

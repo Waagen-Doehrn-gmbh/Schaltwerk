@@ -22,5 +22,8 @@ export const config = {
   cors: {
     origin: process.env.CORS_ORIGIN || "http://localhost:3000",
   },
+  n8n: {
+    webhookUrl: process.env.N8N_WEBHOOK_URL || "",
+  },
 };
 

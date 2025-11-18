@@ -92,6 +92,52 @@ npm start
 - `PUT /api/aufgaben/:id` - Aufgabe aktualisieren
 - `DELETE /api/aufgaben/:id` - Aufgabe löschen
 
+### Webhooks (für n8n Integration)
+- `POST /api/webhook/protokoll` - Hole Protokoll-Daten für n8n
+  - Body: `{ "protokollId": "uuid" }`
+- `POST /api/webhook/chat` - Hole Chat-Daten für n8n
+  - Body: `{ "messageId": "uuid" }`
+
+## n8n Integration
+
+Das Backend sendet automatisch Webhooks an n8n, wenn:
+- Ein neues Protokoll erstellt wird
+- Eine neue Chat-Nachricht erstellt wird
+
+**Konfiguration:**
+Setze die Environment-Variable `N8N_WEBHOOK_URL` auf die Basis-URL deiner n8n-Instanz:
+```env
+N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook
+```
+
+Siehe `n8n-workflows/README.md` für detaillierte Anleitung zur Einrichtung der n8n Workflows.
+
+## Environment Variables
+
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/schalti_pro
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=schalti_pro
+DB_USER=postgres
+DB_PASSWORD=your_password
+
+# JWT
+JWT_SECRET=your-secret-key-change-this
+JWT_EXPIRES_IN=7d
+
+# Server
+PORT=7001
+NODE_ENV=development
+
+# CORS
+CORS_ORIGIN=http://localhost:3000
+
+# n8n Integration (optional)
+N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook
+```
+
 ## Datenbank-Schema
 
 Siehe `src/migrations/` für SQL-Migrationen.

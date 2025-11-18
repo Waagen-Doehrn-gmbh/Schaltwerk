@@ -23,6 +23,37 @@ export interface CreateChatMessageInput {
 }
 
 export class ChatModel {
+  static async findById(id: string): Promise<ChatMessageWithUser | null> {
+    const result = await pool.query(
+      `SELECT c.*, 
+       json_build_object(
+         'id', u.id,
+         'email', u.email,
+         'name', u.name,
+         'initialen', u.initialen,
+         'rolle', u.rolle,
+         'berechtigungen', u.berechtigungen,
+         'avatarUrl', u.avatar_url
+       ) as user
+       FROM chat_messages c
+       LEFT JOIN users u ON c.user_id = u.id
+       WHERE c.id = $1`,
+      [id]
+    );
+    if (!result.rows[0]) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      text: row.text,
+      userId: row.user_id,
+      projektId: row.projekt_id,
+      imageUrl: row.image_url,
+      timestamp: row.timestamp,
+      createdAt: row.created_at,
+      user: row.user,
+    };
+  }
+
   static async findByProjekt(
     projektId: string
   ): Promise<ChatMessageWithUser[]> {

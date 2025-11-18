@@ -1,0 +1,192 @@
+{
+  "name": "Schalti Protokolle → Teams",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "protokoll",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-protokoll",
+      "name": "Webhook - Protokoll",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "protokoll-webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"received\": $json.body } }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://localhost:7001/api/webhook/protokoll",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "protokollId",
+              "value": "={{ $json.body.protokollId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-request",
+      "name": "HTTP Request - Hole Protokoll Daten",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "filter-abnahme",
+              "leftValue": "={{ $json.aufgabe }}",
+              "rightValue": "Abnahme",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-abnahme",
+      "name": "Filter - Nur Abnahmen",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TEAMS_CHAT_ID }}",
+        "message": "=📋 **Neuer Arbeitsschritt**\n\n**Projekt:** {{ $json.projektName }}\n**Schaltschrank-Nr.:** {{ $json.schaltschrankNummer }}\n**Aufgabe:** {{ $json.aufgabe }}\n**Benutzer:** {{ $json.userName }}\n**Zeitaufwand:** {{ $json.zeitaufwand }}h\n**Datum:** {{ $json.datum }}\n\n{{ $json.details ? '**Details:** ' + $json.details : '' }}\n\n{{ $json.abnahmeStatus ? '**Abnahme-Status:** ' + $json.abnahmeStatus : '' }}\n{{ $json.abnahmeTyp ? '**Abnahme-Typ:** ' + $json.abnahmeTyp : '' }}",
+        "options": {}
+      },
+      "id": "teams-message",
+      "name": "Teams - Sende Nachricht",
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 1,
+      "position": [850, 200],
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "1",
+          "name": "Microsoft Teams account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TEAMS_CHAT_ID }}",
+        "message": "=📋 **Neuer Arbeitsschritt**\n\n**Projekt:** {{ $json.projektName }}\n**Schaltschrank-Nr.:** {{ $json.schaltschrankNummer }}\n**Aufgabe:** {{ $json.aufgabe }}\n**Benutzer:** {{ $json.userName }}\n**Zeitaufwand:** {{ $json.zeitaufwand }}h\n**Datum:** {{ $json.datum }}\n\n{{ $json.details ? '**Details:** ' + $json.details : '' }}",
+        "options": {}
+      },
+      "id": "teams-message-all",
+      "name": "Teams - Sende Nachricht (Alle)",
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 1,
+      "position": [850, 400],
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "1",
+          "name": "Microsoft Teams account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Protokoll": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Hole Protokoll Daten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Hole Protokoll Daten": {
+      "main": [
+        [
+          {
+            "node": "Filter - Nur Abnahmen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter - Nur Abnahmen": {
+      "main": [
+        [
+          {
+            "node": "Teams - Sende Nachricht",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Teams - Sende Nachricht (Alle)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Teams - Sende Nachricht": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Teams - Sende Nachricht (Alle)": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+
