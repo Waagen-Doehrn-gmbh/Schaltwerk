@@ -1,9 +1,11 @@
 import { pool } from "../config/database";
+import { UserRole } from "./user.model";
 
 export interface Aufgabe {
   id: string;
   name: string;
   checklisteId?: string;
+  erforderlicheRolle?: UserRole;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -11,6 +13,7 @@ export interface Aufgabe {
 export interface CreateAufgabeInput {
   name: string;
   checklisteId?: string;
+  erforderlicheRolle?: UserRole;
 }
 
 export class AufgabeModel {
@@ -20,6 +23,7 @@ export class AufgabeModel {
       id: row.id,
       name: row.name,
       checklisteId: row.checkliste_id,
+      erforderlicheRolle: row.erforderliche_rolle || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
@@ -35,6 +39,7 @@ export class AufgabeModel {
       id: row.id,
       name: row.name,
       checklisteId: row.checkliste_id,
+      erforderlicheRolle: row.erforderliche_rolle || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -51,6 +56,7 @@ export class AufgabeModel {
       id: row.id,
       name: row.name,
       checklisteId: row.checkliste_id,
+      erforderlicheRolle: row.erforderliche_rolle || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -58,16 +64,17 @@ export class AufgabeModel {
 
   static async create(input: CreateAufgabeInput): Promise<Aufgabe> {
     const result = await pool.query(
-      `INSERT INTO aufgaben (name, checkliste_id)
-       VALUES ($1, $2)
+      `INSERT INTO aufgaben (name, checkliste_id, erforderliche_rolle)
+       VALUES ($1, $2, $3)
        RETURNING *`,
-      [input.name, input.checklisteId || null]
+      [input.name, input.checklisteId || null, input.erforderlicheRolle || null]
     );
     const row = result.rows[0];
     return {
       id: row.id,
       name: row.name,
       checklisteId: row.checkliste_id,
+      erforderlicheRolle: row.erforderliche_rolle || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -89,6 +96,10 @@ export class AufgabeModel {
       fields.push(`checkliste_id = $${paramCount++}`);
       values.push(updates.checklisteId || null);
     }
+    if (updates.erforderlicheRolle !== undefined) {
+      fields.push(`erforderliche_rolle = $${paramCount++}`);
+      values.push(updates.erforderlicheRolle || null);
+    }
 
     fields.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id);
@@ -102,6 +113,7 @@ export class AufgabeModel {
       id: row.id,
       name: row.name,
       checklisteId: row.checkliste_id,
+      erforderlicheRolle: row.erforderliche_rolle || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

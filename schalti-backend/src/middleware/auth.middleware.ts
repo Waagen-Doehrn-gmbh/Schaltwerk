@@ -76,6 +76,32 @@ export function kannEndabnahme(rolle: string): boolean {
   return rolle === "admin" || rolle === "endabnahme";
 }
 
+// Prüft ob ein Benutzer eine bestimmte Rolle oder höhere hat
+export function hatRolleOderHoeher(userRolle: string, erforderlicheRolle: string): boolean {
+  // Admin hat immer alle Berechtigungen
+  if (userRolle === "admin") return true;
+  
+  // Wenn keine Rolle erforderlich ist, hat jeder Zugriff
+  if (!erforderlicheRolle) return true;
+  
+  // Gleiche Rolle hat Zugriff
+  if (userRolle === erforderlicheRolle) return true;
+  
+  // Hierarchie: admin > analyse > endabnahme > technische_abnahme > monteur
+  const rollenHierarchie: Record<string, number> = {
+    monteur: 1,
+    technische_abnahme: 2,
+    endabnahme: 3,
+    analyse: 4,
+    admin: 5,
+  };
+  
+  const userLevel = rollenHierarchie[userRolle] || 0;
+  const erforderlichLevel = rollenHierarchie[erforderlicheRolle] || 0;
+  
+  return userLevel >= erforderlichLevel;
+}
+
 // Middleware für Projekt-Erstellung (nur Admin)
 export function projektAnlegenMiddleware(
   req: AuthRequest,
@@ -110,6 +136,24 @@ export function endabnahmeMiddleware(
 ): void {
   if (!req.user || !kannEndabnahme(req.user.rolle)) {
     res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Endabnahme" });
+    return;
+  }
+  next();
+}
+
+// Prüft ob ein Benutzer mindestens die Rolle "analyse" hat
+export function kannAnalyse(userRolle: string): boolean {
+  return userRolle === "admin" || userRolle === "analyse";
+}
+
+// Middleware für Analyse-Zugriff
+export function analyseMiddleware(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.user || !kannAnalyse(req.user.rolle)) {
+    res.status(403).json({ error: "Zugriff verweigert - Mindestens Rolle 'Analyse' erforderlich" });
     return;
   }
   next();

@@ -177,16 +177,42 @@ export function ProtokollForm({
     return allChecklisten;
   }, [checklistenContext?.checklisten, fallbackChecklisten, checklistenContext?.isLoading]);
   
+  // Hilfsfunktion: Prüft ob Benutzer eine bestimmte Rolle oder höhere hat
+  const hatRolleOderHoeher = (userRolle: string | undefined, erforderlicheRolle: string | undefined): boolean => {
+    if (!userRolle || !erforderlicheRolle) return true; // Wenn keine Rolle erforderlich, hat jeder Zugriff
+    
+    // Admin hat immer alle Berechtigungen
+    if (userRolle === "admin") return true;
+    
+    // Gleiche Rolle hat Zugriff
+    if (userRolle === erforderlicheRolle) return true;
+    
+    // Hierarchie: admin > analyse > endabnahme > technische_abnahme > monteur
+    const rollenHierarchie: Record<string, number> = {
+      monteur: 1,
+      technische_abnahme: 2,
+      endabnahme: 3,
+      analyse: 4,
+      admin: 5,
+    };
+    
+    const userLevel = rollenHierarchie[userRolle] || 0;
+    const erforderlichLevel = rollenHierarchie[erforderlicheRolle] || 0;
+    
+    return userLevel >= erforderlichLevel;
+  };
+
+  // Rückwärtskompatibilität: Alte Berechtigungsprüfungen
   const kannTechnischeAbnahme = 
     user?.rolle === "admin" || 
     user?.rolle === "technische_abnahme" || 
     user?.rolle === "endabnahme" ||
-    user?.berechtigungen?.includes("abnahme"); // Rückwärtskompatibilität
+    user?.berechtigungen?.includes("abnahme");
   
   const kannEndabnahme = 
     user?.rolle === "admin" || 
     user?.rolle === "endabnahme" ||
-    user?.berechtigungen?.includes("endabnahme"); // Rückwärtskompatibilität
+    user?.berechtigungen?.includes("endabnahme");
 
   const technischeAbnahmeBestanden = protokolle.some(
     (protokoll) =>
@@ -258,12 +284,30 @@ export function ProtokollForm({
       verfügbareChecklisten: checklisten.length,
     });
 
-    // Prüfe ob es eine Abnahme-Aufgabe ist
+    // Dynamische Berechtigungsprüfung: Prüfe erforderliche Rolle aus der Aufgabe
+    if (aufgabe.erforderlicheRolle) {
+      if (!hatRolleOderHoeher(user?.rolle, aufgabe.erforderlicheRolle)) {
+        form.setValue("aufgabe", "");
+        const rolleLabels: Record<string, string> = {
+          admin: "Administrator",
+          analyse: "Analyse",
+          endabnahme: "Endabnahme",
+          technische_abnahme: "Technische Abnahme",
+          monteur: "Monteur",
+        };
+        form.setError("aufgabe", { 
+          message: `Diese Aufgabe erfordert mindestens die Rolle "${rolleLabels[aufgabe.erforderlicheRolle] || aufgabe.erforderlicheRolle}"` 
+        });
+        return;
+      }
+    }
+
+    // Prüfe ob es eine Abnahme-Aufgabe ist (für Rückwärtskompatibilität)
     const istAbnahme = watchedAufgabe === "Technische Abnahme" || watchedAufgabe === "Endabnahme";
     setIsAbnahmeAufgabe(istAbnahme);
 
     if (istAbnahme) {
-      // Abnahme-Aufgaben: Spezielle Behandlung
+      // Abnahme-Aufgaben: Spezielle Behandlung (Rückwärtskompatibilität)
       if (watchedAufgabe === "Technische Abnahme") {
         if (!kannTechnischeAbnahme) {
           form.setValue("aufgabe", "");
@@ -507,6 +551,14 @@ export function ProtokollForm({
 
   const getVerfuegbareAufgaben = () => {
     return aufgaben.filter((aufgabe) => {
+      // Dynamische Berechtigungsprüfung: Prüfe erforderliche Rolle
+      if (aufgabe.erforderlicheRolle) {
+        if (!hatRolleOderHoeher(user?.rolle, aufgabe.erforderlicheRolle)) {
+          return false;
+        }
+      }
+      
+      // Rückwärtskompatibilität: Alte Abnahme-Logik
       if (aufgabe.name === "Technische Abnahme") {
         return kannTechnischeAbnahme;
       }

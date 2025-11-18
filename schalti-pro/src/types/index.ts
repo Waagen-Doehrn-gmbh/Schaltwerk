@@ -1,5 +1,5 @@
 export type Berechtigung = "abnahme" | "endabnahme";
-export type UserRole = "admin" | "monteur" | "technische_abnahme" | "endabnahme";
+export type UserRole = "admin" | "analyse" | "endabnahme" | "technische_abnahme" | "monteur";
 
 export interface User {
   id: string;
@@ -103,6 +103,7 @@ export interface Aufgabe {
   id: string;
   name: string;
   checklisteId?: string; // Optional: ID der zugeordneten Checkliste
+  erforderlicheRolle?: UserRole; // Optional: Mindestens erforderliche Rolle
 }
 
 // Analyse Daten Interface

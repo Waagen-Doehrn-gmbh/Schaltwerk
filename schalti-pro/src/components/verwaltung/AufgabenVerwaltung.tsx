@@ -33,12 +33,13 @@ import {
 } from "@/components/ui/form";
 import { Plus, Edit, Trash2, Search, ListChecks } from "lucide-react";
 import { useAufgaben, useChecklisten, useCreateAufgabe, useUpdateAufgabe, useDeleteAufgabe } from "@/lib/hooks";
-import type { Aufgabe } from "@/types";
+import type { Aufgabe, UserRole } from "@/types";
 import { Badge } from "@/components/ui/badge";
 
 const aufgabeSchema = z.object({
   name: z.string().min(1, "Aufgabename ist erforderlich"),
   checklisteId: z.string().optional(),
+  erforderlicheRolle: z.enum(["admin", "analyse", "endabnahme", "technische_abnahme", "monteur"]).optional(),
 });
 
 type AufgabeFormData = z.infer<typeof aufgabeSchema>;
@@ -58,6 +59,7 @@ export function AufgabenVerwaltung() {
     defaultValues: {
       name: "",
       checklisteId: undefined,
+      erforderlicheRolle: undefined,
     },
   });
 
@@ -66,7 +68,7 @@ export function AufgabenVerwaltung() {
 
   // Dialog öffnen für neue Aufgabe
   const handleNewAufgabe = () => {
-    form.reset({ name: "", checklisteId: undefined });
+    form.reset({ name: "", checklisteId: undefined, erforderlicheRolle: undefined });
     setEditingAufgabe(null);
     setIsDialogOpen(true);
   };
@@ -77,6 +79,7 @@ export function AufgabenVerwaltung() {
     form.reset({
       name: aufgabe.name,
       checklisteId: aufgabe.checklisteId || undefined,
+      erforderlicheRolle: aufgabe.erforderlicheRolle || undefined,
     });
     setIsDialogOpen(true);
   };
@@ -90,6 +93,7 @@ export function AufgabenVerwaltung() {
           data: {
             name: data.name.trim(),
             checklisteId: data.checklisteId || undefined,
+            erforderlicheRolle: data.erforderlicheRolle || undefined,
           },
         });
       } else {
@@ -100,6 +104,7 @@ export function AufgabenVerwaltung() {
         await createMutation.mutateAsync({
           name: data.name.trim(),
           checklisteId: data.checklisteId || undefined,
+          erforderlicheRolle: data.erforderlicheRolle || undefined,
         } as Omit<Aufgabe, "id">);
       }
       setIsDialogOpen(false);
@@ -133,6 +138,19 @@ export function AufgabenVerwaltung() {
   const getChecklisteName = (checklisteId?: string) => {
     if (!checklisteId) return null;
     return checklisten.find((c) => c.id === checklisteId)?.name;
+  };
+
+  // Rolle-Label
+  const getRolleLabel = (rolle?: UserRole): string => {
+    if (!rolle) return "";
+    const labels: Record<UserRole, string> = {
+      admin: "Administrator",
+      analyse: "Analyse",
+      endabnahme: "Endabnahme",
+      technische_abnahme: "Technische Abnahme",
+      monteur: "Monteur",
+    };
+    return labels[rolle] || rolle;
   };
 
   if (isLoading) {
@@ -236,9 +254,41 @@ export function AufgabenVerwaltung() {
                     </FormItem>
                   )}
                 />
-                {form.formState.errors.root && (
-                  <p className="text-sm text-red-500">{form.formState.errors.root.message}</p>
-                )}
+                <FormField
+                  control={form.control}
+                  name="erforderlicheRolle"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Erforderliche Rolle (optional)</FormLabel>
+                      <Select
+                        value={field.value || "none"}
+                        onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
+                        disabled={createMutation.isPending || updateMutation.isPending}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Keine spezielle Rolle" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">Keine spezielle Rolle</SelectItem>
+                          <SelectItem value="monteur">Monteur</SelectItem>
+                          <SelectItem value="technische_abnahme">Technische Abnahme</SelectItem>
+                          <SelectItem value="endabnahme">Endabnahme</SelectItem>
+                          <SelectItem value="analyse">Analyse</SelectItem>
+                          <SelectItem value="admin">Administrator</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-slate-500">
+                        Mindestens erforderliche Rolle, um ein Protokoll mit dieser Aufgabe zu erstellen. Benutzer mit höheren Rollen haben automatisch Zugriff.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                    {form.formState.errors.root && (
+                      <p className="text-sm text-red-500">{form.formState.errors.root.message}</p>
+                    )}
                 <DialogFooter>
                   <Button
                     type="button"
@@ -277,6 +327,7 @@ export function AufgabenVerwaltung() {
         <div className="space-y-2">
           {filteredAufgaben.map((aufgabe) => {
             const checklisteName = getChecklisteName(aufgabe.checklisteId);
+            const rolleLabel = getRolleLabel(aufgabe.erforderlicheRolle);
             return (
               <Card key={aufgabe.id}>
                 <CardContent className="p-4">
@@ -288,6 +339,11 @@ export function AufgabenVerwaltung() {
                           <Badge variant="outline" className="gap-1">
                             <ListChecks className="h-3 w-3" />
                             {checklisteName}
+                          </Badge>
+                        )}
+                        {rolleLabel && (
+                          <Badge variant="secondary" className="gap-1">
+                            {rolleLabel}
                           </Badge>
                         )}
                       </div>

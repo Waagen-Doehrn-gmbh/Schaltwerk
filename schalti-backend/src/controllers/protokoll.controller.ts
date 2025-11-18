@@ -1,6 +1,7 @@
 import { Response } from "express";
-import { AuthRequest, kannTechnischeAbnahme, kannEndabnahme } from "../middleware/auth.middleware";
+import { AuthRequest, kannTechnischeAbnahme, kannEndabnahme, hatRolleOderHoeher } from "../middleware/auth.middleware";
 import { ProtokollService } from "../services/protokoll.service";
+import { AufgabeService } from "../services/aufgabe.service";
 import { AppError } from "../middleware/error.middleware";
 import {
   createProtokollSchema,
@@ -60,15 +61,26 @@ export class ProtokollController {
 
       const data = createProtokollSchema.parse(req.body);
       
-      // Rollenprüfung für Abnahmen
-      if (data.aufgabe === "Technische Abnahme" || data.abnahmeTyp === "technisch") {
+      // Dynamische Rollenprüfung: Lade Aufgabe aus DB und prüfe erforderliche Rolle
+      const aufgabe = await AufgabeService.getAufgabeByName(data.aufgabe);
+      if (aufgabe && aufgabe.erforderlicheRolle) {
+        if (!hatRolleOderHoeher(req.user.rolle, aufgabe.erforderlicheRolle)) {
+          res.status(403).json({ 
+            error: `Zugriff verweigert - Diese Aufgabe erfordert mindestens die Rolle "${aufgabe.erforderlicheRolle}"` 
+          });
+          return;
+        }
+      }
+      
+      // Rückwärtskompatibilität: Prüfe auch alte Abnahme-Logik (falls abnahmeTyp gesetzt ist)
+      if (data.abnahmeTyp === "technisch") {
         if (!kannTechnischeAbnahme(req.user.rolle)) {
           res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Technische Abnahme" });
           return;
         }
       }
       
-      if (data.aufgabe === "Endabnahme" || data.abnahmeTyp === "endabnahme") {
+      if (data.abnahmeTyp === "endabnahme") {
         if (!kannEndabnahme(req.user.rolle)) {
           res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Endabnahme" });
           return;
@@ -81,6 +93,18 @@ export class ProtokollController {
         datum: data.datum ? new Date(data.datum) : new Date(),
       });
       const protokollWithUser = await ProtokollService.getProtokollById(protokoll.id);
+      
+      // Webhook zu n8n senden (asynchron, nicht blockierend)
+      if (process.env.N8N_WEBHOOK_URL) {
+        fetch(`${process.env.N8N_WEBHOOK_URL}/protokoll`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ protokollId: protokoll.id }),
+        }).catch((error) => {
+          console.error("Fehler beim Senden des Webhooks zu n8n:", error);
+        });
+      }
+      
       res.status(201).json(protokollWithUser || protokoll);
     } catch (error: any) {
       if (error instanceof AppError) {
@@ -101,15 +125,28 @@ export class ProtokollController {
       const { id } = req.params;
       const data = updateProtokollSchema.parse(req.body);
       
-      // Rollenprüfung für Abnahmen
-      if (data.aufgabe === "Technische Abnahme" || data.abnahmeTyp === "technisch") {
+      // Dynamische Rollenprüfung: Lade Aufgabe aus DB und prüfe erforderliche Rolle
+      if (data.aufgabe) {
+        const aufgabe = await AufgabeService.getAufgabeByName(data.aufgabe);
+        if (aufgabe && aufgabe.erforderlicheRolle) {
+          if (!hatRolleOderHoeher(req.user.rolle, aufgabe.erforderlicheRolle)) {
+            res.status(403).json({ 
+              error: `Zugriff verweigert - Diese Aufgabe erfordert mindestens die Rolle "${aufgabe.erforderlicheRolle}"` 
+            });
+            return;
+          }
+        }
+      }
+      
+      // Rückwärtskompatibilität: Prüfe auch alte Abnahme-Logik (falls abnahmeTyp gesetzt ist)
+      if (data.abnahmeTyp === "technisch") {
         if (!kannTechnischeAbnahme(req.user.rolle)) {
           res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Technische Abnahme" });
           return;
         }
       }
       
-      if (data.aufgabe === "Endabnahme" || data.abnahmeTyp === "endabnahme") {
+      if (data.abnahmeTyp === "endabnahme") {
         if (!kannEndabnahme(req.user.rolle)) {
           res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Endabnahme" });
           return;

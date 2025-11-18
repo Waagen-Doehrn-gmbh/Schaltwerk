@@ -204,6 +204,7 @@ export interface Aufgabe {
   id: string;
   name: string;
   checklisteId?: string;
+  erforderlicheRolle?: "admin" | "analyse" | "endabnahme" | "technische_abnahme" | "monteur";
 }
 
 export const aufgabeApi = {
