@@ -33,14 +33,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Plus, Edit, Trash2, Search, X } from "lucide-react";
-import { useChecklisten, useCreateCheckliste, useUpdateCheckliste, useDeleteCheckliste } from "@/lib/hooks";
+import { useCreateCheckliste, useUpdateCheckliste, useDeleteCheckliste } from "@/lib/hooks";
 import { Badge } from "@/components/ui/badge";
 import { useChecklisten as useChecklistenContext } from "@/components/verwaltung/ChecklistenContext";
 import type { Checkliste } from "@/types";
 
 const checklisteSchema = z.object({
   name: z.string().min(1, "Name ist erforderlich"),
-  typ: z.enum(["technisch", "endabnahme", "allgemein"]),
+  typ: z.enum(["allgemein", "komponenten"]),
   items: z.array(z.object({
     id: z.string().optional(),
     text: z.string(),
@@ -57,7 +57,7 @@ export function ChecklistenVerwaltung() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCheckliste, setEditingCheckliste] = useState<Checkliste | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [typFilter, setTypFilter] = useState<"alle" | "technisch" | "endabnahme" | "allgemein">("alle");
+  const [typFilter, setTypFilter] = useState<"alle" | "allgemein" | "komponenten">("alle");
 
   const form = useForm<ChecklisteFormData>({
     resolver: zodResolver(checklisteSchema),
@@ -199,15 +199,13 @@ export function ChecklistenVerwaltung() {
     return matchesSearch && matchesTyp;
   });
 
-  const getTypBadge = (typ: "technisch" | "endabnahme" | "allgemein") => {
-    if (typ === "technisch") return "bg-blue-100 text-blue-800";
-    if (typ === "endabnahme") return "bg-purple-100 text-purple-800";
+  const getTypBadge = (typ: "allgemein" | "komponenten") => {
+    if (typ === "komponenten") return "bg-green-100 text-green-800";
     return "bg-slate-100 text-slate-800";
   };
 
-  const getTypLabel = (typ: "technisch" | "endabnahme" | "allgemein") => {
-    if (typ === "technisch") return "Technische Abnahme";
-    if (typ === "endabnahme") return "Endabnahme";
+  const getTypLabel = (typ: "allgemein" | "komponenten") => {
+    if (typ === "komponenten") return "Komponenten";
     return "Allgemein";
   };
 
@@ -287,8 +285,7 @@ export function ChecklistenVerwaltung() {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="allgemein">Allgemein</SelectItem>
-                            <SelectItem value="technisch">Technische Abnahme</SelectItem>
-                            <SelectItem value="endabnahme">Endabnahme</SelectItem>
+                            <SelectItem value="komponenten">Komponenten</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -404,8 +401,7 @@ export function ChecklistenVerwaltung() {
           <SelectContent>
             <SelectItem value="alle">Alle Typen</SelectItem>
             <SelectItem value="allgemein">Allgemein</SelectItem>
-            <SelectItem value="technisch">Technische Abnahme</SelectItem>
-            <SelectItem value="endabnahme">Endabnahme</SelectItem>
+            <SelectItem value="komponenten">Komponenten</SelectItem>
           </SelectContent>
         </Select>
       </div>

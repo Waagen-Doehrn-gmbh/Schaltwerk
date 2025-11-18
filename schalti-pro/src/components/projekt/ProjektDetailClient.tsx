@@ -9,6 +9,7 @@ import { ActivityList } from "@/components/protokoll/ActivityList";
 import { ComponentsList } from "@/components/komponenten/ComponentsList";
 import { ProjectChat } from "@/components/projekt/ProjectChat";
 import { useMe, useChatByProjekt, useCreateProtokoll, useUpdateKomponente, useUpdateProjekt } from "@/lib/hooks";
+import { komponenteApi } from "@/lib/api";
 import { formatStunden } from "@/lib/utils";
 import { differenceInDays } from "date-fns";
 import type { Projekt, Arbeitsprotokoll, Komponente, ProtokollFormData } from "@/types";
@@ -51,23 +52,49 @@ export function ProjektDetailClient({
   const updateKomponenteMutation = useUpdateKomponente();
   const updateProjektMutation = useUpdateProjekt();
 
-  // Berechne aktualisierte Stats
+  // Berechne aktualisierte Stats basierend auf projekt-spezifischen Status
   const aktualisierteStats = useMemo(() => {
     const abgeschlosseneKomponenten = komponenten.filter(
       (k) => k.status === "abgeschlossen"
     ).length;
+    const gesamtKomponenten = komponenten.length; // Gesamtanzahl der Komponenten im Projekt
     return {
       ...projekt.stats,
       komponenten: abgeschlosseneKomponenten,
+      gesamtKomponenten: gesamtKomponenten || projekt.stats.gesamtKomponenten, // Fallback auf projekt.stats falls leer
     };
   }, [komponenten, projekt.stats]);
 
   const tageAktiv = differenceInDays(new Date(), projekt.createdAt);
 
-  // Callback: Komponente wurde abgeschlossen
+  // Lade projekt-spezifische Status
+  const [projektStatusMap, setProjektStatusMap] = useState<Record<string, "abgeschlossen" | "ausstehend">>({});
+  
+  useEffect(() => {
+    const loadProjektStatus = async () => {
+      try {
+        const statusMap = await komponenteApi.getStatusByProjekt(projekt.id);
+        setProjektStatusMap(statusMap);
+        
+        // Merge Status in Komponenten
+        setKomponenten((prev) =>
+          prev.map((k) => ({
+            ...k,
+            status: statusMap[k.id] || k.status || "ausstehend",
+          }))
+        );
+      } catch (error) {
+        console.error("Fehler beim Laden der projekt-spezifischen Status:", error);
+      }
+    };
+    
+    loadProjektStatus();
+  }, [projekt.id]);
+
+  // Callback: Komponente wurde abgeschlossen oder zurückgesetzt
   const handleKomponenteAbgeschlossen = async (
     komponenteId: string,
-    status: "abgeschlossen",
+    status: "abgeschlossen" | "ausstehend",
     viaCheckliste: boolean = false
   ): Promise<void> => {
     // Finde die Komponente
@@ -75,13 +102,19 @@ export function ProjektDetailClient({
     if (!komponente) return;
 
     // Wenn über Checkliste abgeschlossen, markiere in Ref
-    if (viaCheckliste) {
+    if (viaCheckliste && status === "abgeschlossen") {
       viaChecklisteAbgeschlossen.current.add(komponenteId);
       // Entferne nach kurzer Zeit, damit es nicht dauerhaft gespeichert bleibt
       setTimeout(() => {
         viaChecklisteAbgeschlossen.current.delete(komponenteId);
       }, 5000); // 5 Sekunden sollten ausreichen
     }
+
+    // Aktualisiere lokalen Status
+    setProjektStatusMap((prev) => ({
+      ...prev,
+      [komponenteId]: status,
+    }));
 
     // Aktualisiere Komponenten-Status
     setKomponenten((prev) =>
@@ -92,29 +125,38 @@ export function ProjektDetailClient({
 
     // Wenn über Checkliste abgeschlossen, KEIN Protokoll erstellen
     // Das Protokoll wird später beim Absenden der Checkliste erstellt
-    if (viaCheckliste) {
+    if (viaCheckliste && status === "abgeschlossen") {
+      // Aber Status trotzdem speichern
+      try {
+        await komponenteApi.updateStatusInProjekt(projekt.id, komponenteId, status);
+      } catch (error) {
+        console.error("Fehler beim Speichern des projekt-spezifischen Status:", error);
+      }
       return;
     }
 
-    // Normale Komponenten-Markierung: Protokoll erstellen
+    // Status-Änderung auf Server speichern (projekt-spezifisch)
     try {
-      await updateKomponenteMutation.mutateAsync({ id: komponenteId, data: { status } });
+      await komponenteApi.updateStatusInProjekt(projekt.id, komponenteId, status);
       
-      const neuesProtokoll = await createProtokollMutation.mutateAsync({
-        aufgabe: "Komponente abgeschlossen",
-        details: `${komponente.name} (${komponente.artikelNummer}) wurde abgeschlossen`,
-        zeitaufwand: 0, // Keine Zeit, da automatisch
-        datum: new Date().toISOString(),
-        projektId: projekt.id,
-      });
+      // Nur bei Abschluss ein Protokoll erstellen (nicht beim Zurücksetzen)
+      if (status === "abgeschlossen") {
+        const neuesProtokoll = await createProtokollMutation.mutateAsync({
+          aufgabe: "Komponente abgeschlossen",
+          details: `${komponente.name} (${komponente.artikelNummer}) wurde abgeschlossen`,
+          zeitaufwand: 0, // Keine Zeit, da automatisch
+          datum: new Date().toISOString(),
+          projektId: projekt.id,
+        });
 
-      const transformedProtokoll: Arbeitsprotokoll = {
-        ...(neuesProtokoll as any),
-        datum: new Date((neuesProtokoll as any).datum),
-      };
+        const transformedProtokoll: Arbeitsprotokoll = {
+          ...(neuesProtokoll as any),
+          datum: new Date((neuesProtokoll as any).datum),
+        };
 
-      // Protokoll zur Liste hinzufügen (ganz oben)
-      setProtokolle((prev) => [transformedProtokoll, ...prev]);
+        // Protokoll zur Liste hinzufügen (ganz oben)
+        setProtokolle((prev) => [transformedProtokoll, ...prev]);
+      }
     } catch (error: any) {
       console.error("Fehler beim Aktualisieren der Komponente:", error);
     }
@@ -267,6 +309,11 @@ export function ProjektDetailClient({
               handleKomponenteAbgeschlossen(komponente.id, "abgeschlossen", false);
             }}
             onKomponentenChange={setKomponenten}
+            onKomponenteStatusChange={(komponenteId, status) => {
+              // Status-Änderung auf Server speichern (auch für Zurücksetzen)
+              handleKomponenteAbgeschlossen(komponenteId, status, false);
+            }}
+            currentUser={currentUser || undefined}
           />
         </div>
 

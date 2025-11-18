@@ -11,6 +11,7 @@ interface KomponenteCardProps {
   showCheckbox?: boolean;
   onCheckboxChange?: (checked: boolean) => void;
   onClick?: () => void;
+  disabled?: boolean;
 }
 
 export function KomponenteCard({
@@ -19,6 +20,7 @@ export function KomponenteCard({
   showCheckbox = false,
   onCheckboxChange,
   onClick,
+  disabled = false,
 }: KomponenteCardProps) {
   const statusBadge = getStatusBadge(komponente.status);
   const isAusstehend = komponente.status === "ausstehend";
@@ -36,11 +38,15 @@ export function KomponenteCard({
   return (
     <Card
       className={cn(
-        "p-3 md:p-3 lg:p-3 xl:p-4 hover:shadow-md transition-all duration-200 overflow-hidden",
-        isAusstehend && showCheckbox ? "cursor-default" : "cursor-pointer",
+        "p-3 md:p-3 lg:p-3 xl:p-4 transition-all duration-200 overflow-hidden",
+        disabled 
+          ? "opacity-60 cursor-not-allowed" 
+          : isAusstehend && showCheckbox 
+            ? "cursor-default hover:shadow-md" 
+            : "cursor-pointer hover:shadow-md",
         isSelected && "ring-2 ring-blue-500"
       )}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
     >
       <div className="flex items-start justify-between gap-2 md:gap-3">
         {showCheckbox && isAusstehend && (

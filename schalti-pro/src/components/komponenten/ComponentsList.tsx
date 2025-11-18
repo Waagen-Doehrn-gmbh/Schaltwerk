@@ -4,20 +4,25 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { KomponenteCard } from "./KomponenteCard";
-import { KomponentenChecklisteDialog } from "./KomponentenChecklisteDialog";
-import type { Komponente, KomponentenStatus } from "@/types";
+import { KomponentenChecklisteInline } from "./KomponentenChecklisteInline";
+import type { Komponente, KomponentenStatus, User } from "@/types";
 import { CheckSquare2, Square, Check } from "lucide-react";
+import { useMe } from "@/lib/hooks";
 
 interface ComponentsListProps {
   komponenten: Komponente[];
   onKomponenteAbgeschlossen?: (komponente: Komponente) => void;
   onKomponentenChange?: (komponenten: Komponente[]) => void;
+  onKomponenteStatusChange?: (komponenteId: string, status: KomponentenStatus) => void;
+  currentUser?: User | null;
 }
 
 export function ComponentsList({
   komponenten: initialKomponenten,
   onKomponenteAbgeschlossen,
   onKomponentenChange,
+  onKomponenteStatusChange,
+  currentUser: propCurrentUser,
 }: ComponentsListProps) {
   // State für die Komponenten mit Status-Management
   const [komponenten, setKomponenten] = useState<Komponente[]>(initialKomponenten);
@@ -26,9 +31,34 @@ export function ComponentsList({
   // Ref um zu verhindern, dass der Callback doppelt aufgerufen wird
   const processedIds = useRef<Set<string>>(new Set());
   const prevKomponenten = useRef<Komponente[]>(initialKomponenten);
-  // State für Checklisten-Dialog
-  const [checklisteDialogOpen, setChecklisteDialogOpen] = useState(false);
-  const [komponenteFuerCheckliste, setKomponenteFuerCheckliste] = useState<Komponente | null>(null);
+  // State für ausklappbare Checklisten (Komponenten-IDs)
+  const [expandedKomponentenIds, setExpandedKomponentenIds] = useState<Set<string>>(new Set());
+  
+  // Hole aktuellen Benutzer (falls nicht als Prop übergeben)
+  const { data: hookCurrentUser } = useMe();
+  const currentUser = propCurrentUser ?? hookCurrentUser;
+  
+  // Hilfsfunktion: Prüft ob Benutzer mindestens "technische_abnahme" Berechtigung hat
+  const kannKomponenteZuruecksetzen = (): boolean => {
+    if (!currentUser) return false;
+    
+    // Admin hat immer alle Berechtigungen
+    if (currentUser.rolle === "admin") return true;
+    
+    // Hierarchie: admin > analyse > endabnahme > technische_abnahme > monteur
+    const rollenHierarchie: Record<string, number> = {
+      monteur: 1,
+      technische_abnahme: 2,
+      endabnahme: 3,
+      analyse: 4,
+      admin: 5,
+    };
+    
+    const userLevel = rollenHierarchie[currentUser.rolle] || 0;
+    const erforderlichLevel = rollenHierarchie["technische_abnahme"] || 0;
+    
+    return userLevel >= erforderlichLevel;
+  };
 
   // Überwache Status-Änderungen und rufe Callback auf
   useEffect(() => {
@@ -51,6 +81,16 @@ export function ComponentsList({
         setTimeout(() => {
           processedIds.current.delete(komponente.id);
         }, 1000);
+      }
+      
+      // Wenn Komponente von "abgeschlossen" zu "ausstehend" zurückgesetzt wurde
+      if (
+        prevKomponente &&
+        prevKomponente.status === "abgeschlossen" &&
+        komponente.status === "ausstehend"
+      ) {
+        // Entferne aus processedIds, damit sie wieder abgeschlossen werden kann
+        processedIds.current.delete(komponente.id);
       }
     });
 
@@ -107,13 +147,31 @@ export function ComponentsList({
     const komponente = komponenten.find((k) => k.id === komponenteId);
     if (!komponente) return;
 
-    // Wenn ausstehend und Checkbox-Modus aktiv, dann Checkbox togglen
+    // Wenn ausstehend, dann prüfe ob Checkliste ausklappbar ist
     if (komponente.status === "ausstehend") {
-      return; // Checkbox übernimmt die Auswahl
+      // Wenn Komponente eine Checkliste hat, klappe sie aus/ein
+      if (komponente.checklisteId) {
+        setExpandedKomponentenIds((prev) => {
+          const newSet = new Set(prev);
+          if (newSet.has(komponenteId)) {
+            newSet.delete(komponenteId);
+          } else {
+            newSet.add(komponenteId);
+          }
+          return newSet;
+        });
+      }
+      return; // Checkbox übernimmt die Auswahl oder Checkliste wird ausgeklappt
     }
 
-    // Bei abgeschlossenen Komponenten: Status zurücksetzen (mit Bestätigung)
+    // Bei abgeschlossenen Komponenten: Status zurücksetzen (mit Berechtigungsprüfung)
     if (komponente.status === "abgeschlossen") {
+      // Prüfe Berechtigung
+      if (!kannKomponenteZuruecksetzen()) {
+        alert("Sie haben keine Berechtigung, abgeschlossene Komponenten zurückzusetzen. Mindestens die Rolle 'Technische Abnahme' ist erforderlich.");
+        return;
+      }
+      
       if (!confirm("Komponente wirklich als ausstehend markieren?")) {
         return;
       }
@@ -123,9 +181,16 @@ export function ComponentsList({
     setKomponenten((prev) => {
       const updated = prev.map((k) => {
         if (k.id === komponenteId) {
+          const newStatus = (k.status === "ausstehend" ? "abgeschlossen" : "ausstehend") as KomponentenStatus;
+          
+          // Informiere Parent über Status-Änderung (für Server-Sync)
+          if (onKomponenteStatusChange) {
+            onKomponenteStatusChange(komponenteId, newStatus);
+          }
+          
           return {
             ...k,
-            status: (k.status === "ausstehend" ? "abgeschlossen" : "ausstehend") as KomponentenStatus,
+            status: newStatus,
           };
         }
         return k;
@@ -165,23 +230,17 @@ export function ComponentsList({
     setSelectedIds(new Set());
   };
 
-  // Prüfe ob Komponente Checkliste hat und öffne Dialog wenn nötig
-  const handleKomponenteAbschließen = (komponente: Komponente) => {
-    if (komponente.checklisteId) {
-      // Komponente hat Checkliste - Dialog öffnen
-      setKomponenteFuerCheckliste(komponente);
-      setChecklisteDialogOpen(true);
-    } else {
-      // Keine Checkliste - direkt abschließen
-      markKomponenteAbgeschlossen(komponente);
-    }
-  };
-
   // Callback wenn Checkliste vollständig abgearbeitet wurde
-  const handleChecklisteComplete = () => {
-    if (komponenteFuerCheckliste) {
-      markKomponenteAbgeschlossen(komponenteFuerCheckliste);
-      setKomponenteFuerCheckliste(null);
+  const handleChecklisteComplete = (komponenteId: string) => {
+    const komponente = komponenten.find((k) => k.id === komponenteId);
+    if (komponente) {
+      markKomponenteAbgeschlossen(komponente);
+      // Checkliste einklappen nach Abschluss
+      setExpandedKomponentenIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(komponenteId);
+        return newSet;
+      });
     }
   };
 
@@ -221,16 +280,11 @@ export function ComponentsList({
       // Auswahl zurücksetzen
       setSelectedIds(new Set());
     } else {
-      // Mindestens eine Komponente hat Checkliste - nur die erste öffnen
-      // (in einer echten App könnte man hier mehrere Dialoge nacheinander öffnen)
+      // Mindestens eine Komponente hat Checkliste - klappe die erste aus
       const ersteMitCheckliste = komponentenMitCheckliste[0];
-      setKomponenteFuerCheckliste(ersteMitCheckliste);
-      setChecklisteDialogOpen(true);
-      
-      // Entferne diese Komponente aus der Auswahl
-      setSelectedIds((prev) => {
+      setExpandedKomponentenIds((prev) => {
         const newSet = new Set(prev);
-        newSet.delete(ersteMitCheckliste.id);
+        newSet.add(ersteMitCheckliste.id);
         return newSet;
       });
       
@@ -337,13 +391,17 @@ export function ComponentsList({
               Abgeschlossen ({abgeschlossen.length})
             </h3>
             <div className="grid grid-cols-1 gap-3">
-              {abgeschlossen.map((komponente) => (
-                <KomponenteCard
-                  key={komponente.id}
-                  komponente={komponente}
-                  onClick={() => handleKomponenteClick(komponente.id)}
-                />
-              ))}
+              {abgeschlossen.map((komponente) => {
+                const kannZuruecksetzen = kannKomponenteZuruecksetzen();
+                return (
+                  <KomponenteCard
+                    key={komponente.id}
+                    komponente={komponente}
+                    onClick={kannZuruecksetzen ? () => handleKomponenteClick(komponente.id) : undefined}
+                    disabled={!kannZuruecksetzen}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
@@ -356,31 +414,29 @@ export function ComponentsList({
             </h3>
             <div className="grid grid-cols-1 gap-3">
               {ausstehend.map((komponente) => (
-                <KomponenteCard
-                  key={komponente.id}
-                  komponente={komponente}
-                  isSelected={selectedIds.has(komponente.id)}
-                  showCheckbox={true}
-                  onCheckboxChange={(checked) =>
-                    handleCheckboxChange(komponente.id, checked)
-                  }
-                  onClick={() => handleKomponenteClick(komponente.id)}
-                />
+                <div key={komponente.id}>
+                  <KomponenteCard
+                    komponente={komponente}
+                    isSelected={selectedIds.has(komponente.id)}
+                    showCheckbox={true}
+                    onCheckboxChange={(checked) =>
+                      handleCheckboxChange(komponente.id, checked)
+                    }
+                    onClick={() => handleKomponenteClick(komponente.id)}
+                  />
+                  {expandedKomponentenIds.has(komponente.id) && komponente.checklisteId && (
+                    <KomponentenChecklisteInline
+                      key={`checkliste-${komponente.id}-${komponente.checklisteId}`}
+                      komponente={komponente}
+                      onComplete={() => handleChecklisteComplete(komponente.id)}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           </div>
         )}
       </CardContent>
-      
-      {/* Checklisten-Dialog */}
-      {komponenteFuerCheckliste && (
-        <KomponentenChecklisteDialog
-          komponente={komponenteFuerCheckliste}
-          open={checklisteDialogOpen}
-          onOpenChange={setChecklisteDialogOpen}
-          onComplete={handleChecklisteComplete}
-        />
-      )}
     </Card>
   );
 }

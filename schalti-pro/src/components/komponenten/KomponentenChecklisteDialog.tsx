@@ -30,7 +30,7 @@ const getKomponentenChecklisten = (): Checkliste[] => {
     {
       id: "checkliste-zeitschaltuhr",
       name: "Zeitschaltuhr - Hinweise",
-      typ: "allgemein",
+      typ: "komponenten",
       items: [
         {
           id: "zt-1",

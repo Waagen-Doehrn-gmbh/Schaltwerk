@@ -17,13 +17,13 @@ const initialChecklisten: Checkliste[] = [
   {
     id: "checkliste-1",
     name: "Standard Technische Abnahme",
-    typ: "technisch",
+    typ: "allgemein",
     items: STANDARD_ABNAHME_CHECKLISTE,
   },
   {
     id: "checkliste-2",
     name: "Standard Endabnahme",
-    typ: "endabnahme",
+    typ: "allgemein",
     items: ENDABNAHME_CHECKLISTE,
   },
 ];
@@ -151,9 +151,7 @@ export function useChecklisten() {
   return context;
 }
 
-// Optional hook für Komponenten außerhalb des Providers
 export function useChecklistenOptional() {
   const context = useContext(ChecklistenContext);
-  return context; // Kann undefined sein
+  return context;
 }
-

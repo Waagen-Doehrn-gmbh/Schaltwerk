@@ -197,6 +197,17 @@ export const komponenteApi = {
       method: "DELETE",
     });
   },
+
+  getStatusByProjekt: async (projektId: string): Promise<Record<string, "abgeschlossen" | "ausstehend">> => {
+    return apiRequest(`/api/komponenten/projekt/${projektId}/status`);
+  },
+
+  updateStatusInProjekt: async (projektId: string, komponenteId: string, status: "abgeschlossen" | "ausstehend") => {
+    return apiRequest(`/api/komponenten/projekt/${projektId}/${komponenteId}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
+  },
 };
 
 // Aufgaben API
@@ -242,12 +253,12 @@ export interface ChecklisteItem {
 export interface Checkliste {
   id: string;
   name: string;
-  typ: "technisch" | "endabnahme" | "allgemein";
+  typ: "allgemein" | "komponenten";
   items: ChecklisteItem[];
 }
 
 export const checklisteApi = {
-  getAll: async (typ?: "technisch" | "endabnahme" | "allgemein"): Promise<Checkliste[]> => {
+  getAll: async (typ?: "allgemein" | "komponenten"): Promise<Checkliste[]> => {
     const url = typ ? `/api/checklisten?typ=${typ}` : "/api/checklisten";
     return apiRequest<Checkliste[]>(url);
   },

@@ -236,8 +236,7 @@ export function AufgabenVerwaltung() {
                           <SelectItem value="none">Keine Checkliste</SelectItem>
                           {checklisten.map((checkliste) => {
                             const typLabel = 
-                              checkliste.typ === "technisch" ? "Technisch" :
-                              checkliste.typ === "endabnahme" ? "Endabnahme" :
+                              checkliste.typ === "komponenten" ? "Komponenten" :
                               "Allgemein";
                             return (
                               <SelectItem key={checkliste.id} value={checkliste.id}>

@@ -55,13 +55,13 @@ const getFallbackChecklisten = (): Checkliste[] => {
     {
       id: "checkliste-1",
       name: "Standard Technische Abnahme",
-      typ: "technisch",
+      typ: "allgemein",
       items: STANDARD_ABNAHME_CHECKLISTE,
     },
     {
       id: "checkliste-2",
       name: "Standard Endabnahme",
-      typ: "endabnahme",
+      typ: "allgemein",
       items: ENDABNAHME_CHECKLISTE,
     },
     {

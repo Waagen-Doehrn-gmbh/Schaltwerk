@@ -11,7 +11,7 @@ export const checklisteKeys = {
 };
 
 // Get all checklisten
-export function useChecklisten(typ?: "technisch" | "endabnahme" | "allgemein") {
+export function useChecklisten(typ?: "allgemein" | "komponenten") {
   return useQuery({
     queryKey: checklisteKeys.list(typ),
     queryFn: () => checklisteApi.getAll(typ),

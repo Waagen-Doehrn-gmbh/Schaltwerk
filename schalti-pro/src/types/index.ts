@@ -84,7 +84,7 @@ export type AbnahmeStatus = "bestanden" | "verweigert";
 export interface Checkliste {
   id: string;
   name: string;
-  typ: "technisch" | "endabnahme" | "allgemein";
+  typ: "allgemein" | "komponenten";
   items: Omit<AbnahmeChecklisteItem, "checked" | "bilder">[]; // Items ohne checked-Status und Bilder
 }
 

@@ -39,8 +39,8 @@ import { Badge } from "@/components/ui/badge";
 const userSchema = z.object({
   email: z.string().email("Ungültige E-Mail-Adresse"),
   password: z.string().optional(),
-  name: z.string().min(1, "Name ist erforderlich"),
-  initialen: z.string().min(1, "Initialen sind erforderlich").max(10),
+  name: z.string().min(2, "Name muss mindestens 2 Zeichen lang sein"),
+  initialen: z.string().min(2, "Initialen müssen mindestens 2 Zeichen lang sein").max(10, "Initialen dürfen maximal 10 Zeichen lang sein"),
   rolle: z.enum(["admin", "analyse", "endabnahme", "technische_abnahme", "monteur"]),
 }).refine((data) => {
   // Passwort ist nur beim Erstellen erforderlich

@@ -27,10 +27,20 @@ import {
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { useKomponenten, useCreateKomponente, useUpdateKomponente, useDeleteKomponente } from "@/lib/hooks";
 import type { Komponente } from "@/types";
+import { useChecklistenOptional } from "@/components/verwaltung/ChecklistenContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 const komponenteSchema = z.object({
   name: z.string().min(1, "Komponentenname ist erforderlich"),
   artikelNummer: z.string().min(1, "Artikelnummer ist erforderlich"),
+  checklisteId: z.string().optional(),
 });
 
 type KomponenteFormData = z.infer<typeof komponenteSchema>;
@@ -43,12 +53,16 @@ export function KomponentenVerwaltung() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingKomponente, setEditingKomponente] = useState<Komponente | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const checklistenContext = useChecklistenOptional();
+  const checklisten = checklistenContext?.checklisten || [];
+  const komponentenChecklisten = checklisten.filter((c) => c.typ === "komponenten");
 
   const form = useForm<KomponenteFormData>({
     resolver: zodResolver(komponenteSchema),
     defaultValues: {
       name: "",
       artikelNummer: "",
+      checklisteId: "",
     },
   });
 
@@ -65,6 +79,7 @@ export function KomponentenVerwaltung() {
     form.reset({
       name: komponente.name,
       artikelNummer: komponente.artikelNummer,
+      checklisteId: komponente.checklisteId || "",
     });
     setIsDialogOpen(true);
   };
@@ -72,13 +87,19 @@ export function KomponentenVerwaltung() {
   // Komponente speichern
   const onSubmit = async (data: KomponenteFormData) => {
     try {
+      // Leere checklisteId als undefined behandeln
+      const submitData = {
+        ...data,
+        checklisteId: data.checklisteId && data.checklisteId.trim() !== "" ? data.checklisteId : undefined,
+      };
+      
       if (editingKomponente) {
         await updateMutation.mutateAsync({
           id: editingKomponente.id,
-          data,
+          data: submitData,
         });
       } else {
-        await createMutation.mutateAsync(data);
+        await createMutation.mutateAsync(submitData);
       }
       setIsDialogOpen(false);
       form.reset();
@@ -194,6 +215,38 @@ export function KomponentenVerwaltung() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="checklisteId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Checkliste (optional)</FormLabel>
+                      <Select
+                        value={field.value || "__none__"}
+                        onValueChange={(value) => field.onChange(value === "__none__" ? undefined : value)}
+                        disabled={createMutation.isPending || updateMutation.isPending}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Keine Checkliste zuordnen" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">Keine Checkliste</SelectItem>
+                          {komponentenChecklisten.map((checkliste) => (
+                            <SelectItem key={checkliste.id} value={checkliste.id}>
+                              {checkliste.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                      <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                        Wenn eine Checkliste zugeordnet ist, muss diese vollständig abgearbeitet werden, bevor die Komponente als eingebaut markiert werden kann.
+                      </p>
+                    </FormItem>
+                  )}
+                />
                 {form.formState.errors.root && (
                   <p className="text-sm text-red-500">{form.formState.errors.root.message}</p>
                 )}
@@ -239,6 +292,10 @@ export function KomponentenVerwaltung() {
       {filteredKomponenten.length > 0 ? (
         <div className="space-y-3">
           {filteredKomponenten.map((komponente) => {
+            const zugeordneteCheckliste = komponente.checklisteId
+              ? komponentenChecklisten.find((c) => c.id === komponente.checklisteId)
+              : null;
+            
             return (
               <Card key={komponente.id}>
                 <CardContent className="p-4">
@@ -258,6 +315,11 @@ export function KomponentenVerwaltung() {
                         <p className="text-xs text-slate-400 italic mt-2">
                           Noch keinem Projekt zugeordnet
                         </p>
+                      )}
+                      {zugeordneteCheckliste && (
+                        <Badge variant="outline" className="mt-2 text-xs">
+                          Checkliste: {zugeordneteCheckliste.name}
+                        </Badge>
                       )}
                     </div>
                     <div className="flex gap-2">
