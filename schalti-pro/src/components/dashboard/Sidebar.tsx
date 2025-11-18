@@ -33,12 +33,23 @@ export function Sidebar() {
   }, []);
 
   const isAdmin = currentUser?.rolle === "admin";
+  
+  // Prüfe ob Benutzer mindestens die Rolle "analyse" hat
+  const kannAnalyse = (rolle?: string): boolean => {
+    return rolle === "admin" || rolle === "analyse";
+  };
+  const hatAnalyseZugriff = kannAnalyse(currentUser?.rolle);
 
-  // Navigation mit optionalem Admin-Link
-  const navigationItems = [
-    ...navigation,
-    ...(isAdmin ? [{ name: "Verwaltung", href: "/verwaltung", icon: Shield }] : []),
-  ];
+  // Filtere Navigation basierend auf Berechtigungen
+  const navigationItems = navigation
+    .filter((item) => {
+      // Analyse-Tab nur für Benutzer mit mindestens "analyse" Rolle
+      if (item.name === "Analyse") {
+        return hatAnalyseZugriff;
+      }
+      return true;
+    })
+    .concat(isAdmin ? [{ name: "Verwaltung", href: "/verwaltung", icon: Shield }] : []);
 
   return (
     <div className="fixed left-0 top-0 h-screen w-[220px] md:w-[220px] lg:w-[220px] xl:w-[260px] bg-slate-900 dark:bg-sidebar border-r border-slate-800 dark:border-sidebar-border flex flex-col z-50">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { BarChart3 } from "lucide-react";
 import { AnalyseFilter } from "@/components/analyse/AnalyseFilter";
 import { DauerChart } from "@/components/analyse/DauerChart";
@@ -9,7 +10,7 @@ import { ZeitverlaufChart } from "@/components/analyse/ZeitverlaufChart";
 import { StatusChart } from "@/components/analyse/StatusChart";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { useProjekte, useProtokolle, useKomponenten } from "@/lib/hooks";
+import { useProjekte, useProtokolle, useKomponenten, useMe } from "@/lib/hooks";
 import type { ProjektStatus } from "@/types";
 import { formatStunden } from "@/lib/utils";
 import { Clock, TrendingUp, Target, Calendar } from "lucide-react";
@@ -37,6 +38,8 @@ interface StatusVerteilung {
 }
 
 export default function AnalysePage() {
+  const router = useRouter();
+  const { data: currentUser, isLoading: userLoading } = useMe();
   const [filters, setFilters] = useState<{
     status?: ProjektStatus;
     datumVon?: Date;
@@ -47,8 +50,33 @@ export default function AnalysePage() {
   const { data: protokolle = [], isLoading: protokolleLoading } = useProtokolle();
   const { data: komponenten = [], isLoading: komponentenLoading } = useKomponenten();
 
-  const isLoading = projekteLoading || protokolleLoading || komponentenLoading;
+  // Prüfe ob Benutzer mindestens die Rolle "analyse" hat
+  const kannAnalyse = (rolle?: string): boolean => {
+    return rolle === "admin" || rolle === "analyse";
+  };
+
+  // Zugriffskontrolle: Weiterleitung wenn keine Berechtigung
+  useEffect(() => {
+    if (!userLoading && currentUser && !kannAnalyse(currentUser.rolle)) {
+      router.push("/");
+    }
+  }, [currentUser, userLoading, router]);
+
+  const isLoading = userLoading || projekteLoading || protokolleLoading || komponentenLoading;
   const error = projekteError ? (projekteError as Error).message : null;
+
+  // Wenn kein Zugriff, zeige nichts
+  if (!userLoading && currentUser && !kannAnalyse(currentUser.rolle)) {
+    return null;
+  }
+
+  if (userLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-slate-500">Lade...</p>
+      </div>
+    );
+  }
 
   // Filtere Projekte
   const gefilterteProjekte = useMemo(() => {
