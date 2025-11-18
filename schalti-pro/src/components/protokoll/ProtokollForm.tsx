@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { aufgabeApi } from "@/lib/api";
 import { 
   AbnahmeCheckliste, 
@@ -23,6 +34,19 @@ import { AufgabenCheckliste } from "./AufgabenCheckliste";
 import type { ProtokollFormData, AbnahmeChecklisteItem, User, Arbeitsprotokoll, Checkliste, Komponente, Aufgabe } from "@/types";
 import { AlertCircle } from "lucide-react";
 import { useChecklistenOptional } from "@/components/verwaltung/ChecklistenContext";
+
+const protokollSchema = z.object({
+  aufgabe: z.string().min(1, "Aufgabe ist erforderlich"),
+  details: z.string().optional(),
+  zeitaufwand: z.number().min(0.5, "Zeitaufwand muss mindestens 0.5 Stunden sein"),
+  abnahmeStatus: z.enum(["bestanden", "verweigert"]).optional(),
+  abnahmeCheckliste: z.array(z.any()).optional(),
+  abnahmeTyp: z.enum(["technisch", "endabnahme"]).optional(),
+  checklisteStatus: z.enum(["abgeschlossen", "teilabschluss"]).optional(),
+  abgeschlosseneKomponentenIds: z.array(z.string()).optional(),
+});
+
+type ProtokollFormValues = z.infer<typeof protokollSchema>;
 
 // Fallback: Checklisten wenn Context nicht verfügbar ist
 const getFallbackChecklisten = (): Checkliste[] => {
@@ -172,12 +196,19 @@ export function ProtokollForm({
       protokoll.abnahmeTyp === "technisch"
   );
 
-  const [formData, setFormData] = useState<ProtokollFormData>({
-    aufgabe: "",
-    details: "",
-    zeitaufwand: 0.5,
+  const form = useForm<ProtokollFormValues>({
+    resolver: zodResolver(protokollSchema),
+    defaultValues: {
+      aufgabe: "",
+      details: "",
+      zeitaufwand: 0.5,
+    },
   });
-  const [errors, setErrors] = useState<Partial<Record<keyof ProtokollFormData, string>>>({});
+
+  const watchedAufgabe = form.watch("aufgabe");
+  const watchedDetails = form.watch("details");
+  const watchedZeitaufwand = form.watch("zeitaufwand");
+
   const [komponentenChecklistenFehler, setKomponentenChecklistenFehler] = useState<string>("");
   const [showCheckliste, setShowCheckliste] = useState(false);
   const [checkliste, setCheckliste] = useState<AbnahmeChecklisteItem[]>([]);
@@ -191,33 +222,15 @@ export function ProtokollForm({
     if (showCheckliste && checkliste.length > 0 && !isAbnahmeAufgabe) {
       const allChecked = checkliste.every((item) => item.checked);
       const status: "abgeschlossen" | "teilabschluss" = allChecked ? "abgeschlossen" : "teilabschluss";
-      setFormData((prev) => {
-        // Nur aktualisieren wenn sich der Wert ändert
-        if (prev.checklisteStatus === status) {
-          return prev;
-        }
-        return {
-          ...prev,
-          checklisteStatus: status,
-        };
-      });
+      form.setValue("checklisteStatus", status, { shouldValidate: false });
     } else if (!showCheckliste || isAbnahmeAufgabe) {
-      setFormData((prev) => {
-        // Nur aktualisieren wenn sich der Wert ändert
-        if (prev.checklisteStatus === undefined) {
-          return prev;
-        }
-        return {
-          ...prev,
-          checklisteStatus: undefined,
-        };
-      });
+      form.setValue("checklisteStatus", undefined, { shouldValidate: false });
     }
-  }, [checkliste, showCheckliste, isAbnahmeAufgabe]);
+  }, [checkliste, showCheckliste, isAbnahmeAufgabe, form]);
 
   // Initialisiere Checkliste wenn Aufgabe ausgewählt wird
   useEffect(() => {
-    if (!formData.aufgabe) {
+    if (!watchedAufgabe) {
       setShowCheckliste(false);
       setCheckliste([]);
       setIsAbnahmeAufgabe(false);
@@ -230,9 +243,9 @@ export function ProtokollForm({
       return;
     }
 
-    const aufgabe = getAufgabeByName(formData.aufgabe);
+    const aufgabe = getAufgabeByName(watchedAufgabe);
     if (!aufgabe) {
-      console.log("❌ Aufgabe nicht gefunden:", formData.aufgabe);
+      console.log("❌ Aufgabe nicht gefunden:", watchedAufgabe);
       setShowCheckliste(false);
       setCheckliste([]);
       setIsAbnahmeAufgabe(false);
@@ -246,15 +259,15 @@ export function ProtokollForm({
     });
 
     // Prüfe ob es eine Abnahme-Aufgabe ist
-    const istAbnahme = formData.aufgabe === "Technische Abnahme" || formData.aufgabe === "Endabnahme";
+    const istAbnahme = watchedAufgabe === "Technische Abnahme" || watchedAufgabe === "Endabnahme";
     setIsAbnahmeAufgabe(istAbnahme);
 
     if (istAbnahme) {
       // Abnahme-Aufgaben: Spezielle Behandlung
-      if (formData.aufgabe === "Technische Abnahme") {
+      if (watchedAufgabe === "Technische Abnahme") {
         if (!kannTechnischeAbnahme) {
-          setFormData((prev) => ({ ...prev, aufgabe: "" }));
-          setErrors({ aufgabe: "Sie haben keine Berechtigung für Technische Abnahme" });
+          form.setValue("aufgabe", "");
+          form.setError("aufgabe", { message: "Sie haben keine Berechtigung für Technische Abnahme" });
           return;
         }
         
@@ -267,23 +280,17 @@ export function ProtokollForm({
         }
         setChecklisteTitel("Technische Abnahme - Checkliste");
         setShowCheckliste(true);
-        setFormData((prev) => {
-          // Nur aktualisieren wenn sich der Wert ändert
-          if (prev.abnahmeTyp === "technisch") {
-            return prev;
-          }
-          return { ...prev, abnahmeTyp: "technisch" };
-        });
-      } else if (formData.aufgabe === "Endabnahme") {
+        form.setValue("abnahmeTyp", "technisch", { shouldValidate: false });
+      } else if (watchedAufgabe === "Endabnahme") {
         if (!kannEndabnahme) {
-          setFormData((prev) => ({ ...prev, aufgabe: "" }));
-          setErrors({ aufgabe: "Sie haben keine Berechtigung für Endabnahme" });
+          form.setValue("aufgabe", "");
+          form.setError("aufgabe", { message: "Sie haben keine Berechtigung für Endabnahme" });
           return;
         }
         if (!technischeAbnahmeBestanden) {
-          setFormData((prev) => ({ ...prev, aufgabe: "" }));
-          setErrors({ 
-            aufgabe: "Endabnahme ist erst nach erfolgreicher Technischer Abnahme möglich" 
+          form.setValue("aufgabe", "");
+          form.setError("aufgabe", { 
+            message: "Endabnahme ist erst nach erfolgreicher Technischer Abnahme möglich" 
           });
           return;
         }
@@ -297,13 +304,7 @@ export function ProtokollForm({
         }
         setChecklisteTitel("Endabnahme - Checkliste");
         setShowCheckliste(true);
-        setFormData((prev) => {
-          // Nur aktualisieren wenn sich der Wert ändert
-          if (prev.abnahmeTyp === "endabnahme") {
-            return prev;
-          }
-          return { ...prev, abnahmeTyp: "endabnahme" };
-        });
+        form.setValue("abnahmeTyp", "endabnahme", { shouldValidate: false });
       }
     } else {
       // Normale Aufgaben: Prüfe ob Checkliste zugeordnet ist
@@ -347,7 +348,7 @@ export function ProtokollForm({
         if (zugeordneteCheckliste) {
           // Prüfe ob es bereits Protokolle mit dieser Aufgabe gibt
           const vorherigeProtokolle = protokolle.filter(
-            (p) => p.projektId === projektId && p.aufgabe === formData.aufgabe && p.abnahmeCheckliste
+            (p) => p.projektId === projektId && p.aufgabe === watchedAufgabe && p.abnahmeCheckliste
           );
           
           // Sammle alle bereits abgehakten Punkte und Bilder aus vorherigen Protokollen
@@ -405,37 +406,19 @@ export function ProtokollForm({
       }
       
       // Reset Abnahme-Status wenn normale Aufgabe ausgewählt wird
-      if (formData.abnahmeStatus || formData.abnahmeTyp) {
-        setFormData((prev) => {
-          // Nur aktualisieren wenn sich etwas ändert
-          if (prev.abnahmeStatus === undefined && prev.abnahmeTyp === undefined) {
-            return prev;
-          }
-          return { 
-            ...prev, 
-            abnahmeStatus: undefined,
-            abnahmeTyp: undefined 
-          };
-        });
+      if (form.getValues("abnahmeStatus") || form.getValues("abnahmeTyp")) {
+        form.setValue("abnahmeStatus", undefined, { shouldValidate: false });
+        form.setValue("abnahmeTyp", undefined, { shouldValidate: false });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.aufgabe, kannTechnischeAbnahme, kannEndabnahme, protokolle, projektId, checklisten, checklistenContext?.isLoading]);
+  }, [watchedAufgabe, kannTechnischeAbnahme, kannEndabnahme, protokolle, projektId, checklisten, checklistenContext?.isLoading, form]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newErrors: Partial<Record<keyof ProtokollFormData, string>> = {};
-    if (!formData.aufgabe) {
-      newErrors.aufgabe = "Aufgabe ist erforderlich";
-    }
-    if (formData.zeitaufwand <= 0) {
-      newErrors.zeitaufwand = "Zeitaufwand muss größer als 0 sein";
-    }
-
+  const handleFormSubmit = async (data: ProtokollFormValues) => {
     // Bei Abnahme-Aufgaben: Prüfe ob Checkliste abgeschlossen wurde
-    if (isAbnahmeAufgabe && !formData.abnahmeStatus) {
-      newErrors.aufgabe = "Bitte schließen Sie die Abnahme ab";
+    if (isAbnahmeAufgabe && !data.abnahmeStatus) {
+      form.setError("aufgabe", { message: "Bitte schließen Sie die Abnahme ab" });
+      return;
     }
 
     // Prüfe ob alle Komponenten-Checklisten vollständig sind (nur wenn Checkliste angezeigt wird)
@@ -452,14 +435,9 @@ export function ProtokollForm({
       setKomponentenChecklistenFehler("");
     }
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
     // Prüfe ob Komponenten-Checklisten-Fehler vorhanden ist
     if (komponentenChecklistenFehlerText) {
-      setErrors(newErrors);
+      form.setError("root", { message: komponentenChecklistenFehlerText });
       return;
     }
 
@@ -472,9 +450,14 @@ export function ProtokollForm({
 
     // Submit mit Checkliste-Daten
     const submitData: ProtokollFormData = {
-      ...formData,
+      aufgabe: data.aufgabe,
+      details: data.details || "",
+      zeitaufwand: data.zeitaufwand,
+      abnahmeStatus: data.abnahmeStatus,
       abnahmeCheckliste: showCheckliste && checkliste.length > 0 ? checkliste : undefined,
+      abnahmeTyp: data.abnahmeTyp,
       checklisteStatus,
+      abgeschlosseneKomponentenIds: data.abgeschlosseneKomponentenIds,
     };
 
     console.log("Protokoll erstellt:", { ...submitData, projektId });
@@ -483,7 +466,7 @@ export function ProtokollForm({
     }
 
     // Reset
-    setFormData({
+    form.reset({
       aufgabe: "",
       details: "",
       zeitaufwand: 0.5,
@@ -491,7 +474,6 @@ export function ProtokollForm({
     setCheckliste([]);
     setShowCheckliste(false);
     setIsAbnahmeAufgabe(false);
-    setErrors({});
     setKomponentenChecklistenFehler("");
     komponentenChecklistenStatusRef.current = null;
     
@@ -509,7 +491,7 @@ export function ProtokollForm({
   };
 
   const handleAbnahmeAbschließen = (status: "bestanden" | "verweigert") => {
-    const aufgabeName = formData.aufgabe === "Endabnahme" 
+    const aufgabeName = watchedAufgabe === "Endabnahme" 
       ? "Endabnahme" 
       : "Technische Abnahme";
     
@@ -517,11 +499,10 @@ export function ProtokollForm({
       ? `${aufgabeName} bestanden. Alle ${checkliste.length} Prüfpunkte erfüllt.`
       : `${aufgabeName} verweigert. Nacharbeit erforderlich. Nicht erfüllte Punkte: ${checkliste.filter(item => !item.checked).length}`;
     
-    setFormData((prev) => ({
-      ...prev,
-      abnahmeStatus: status,
-      details: prev.details || statusDetails,
-    }));
+    form.setValue("abnahmeStatus", status, { shouldValidate: false });
+    if (!watchedDetails) {
+      form.setValue("details", statusDetails, { shouldValidate: false });
+    }
   };
 
   const getVerfuegbareAufgaben = () => {
@@ -549,56 +530,60 @@ export function ProtokollForm({
             </p>
           </div>
         )}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Aufgabe */}
-          <div>
-            <Label htmlFor="aufgabe">Aufgabe *</Label>
-            <Select
-              value={formData.aufgabe}
-              onValueChange={(value) => {
-                setFormData({ ...formData, aufgabe: value });
-                setErrors({ ...errors, aufgabe: undefined });
-              }}
-              disabled={aufgabenLoading}
-            >
-              <SelectTrigger id="aufgabe" className={errors.aufgabe ? "border-red-500" : ""}>
-                <SelectValue placeholder={aufgabenLoading ? "Lade Aufgaben..." : "Aufgabe auswählen"} />
-              </SelectTrigger>
-              <SelectContent>
-                {aufgabenLoading ? (
-                  <SelectItem value="loading" disabled>Lade Aufgaben...</SelectItem>
-                ) : aufgaben.length === 0 ? (
-                  <SelectItem value="no-tasks" disabled>Keine Aufgaben verfügbar</SelectItem>
-                ) : (
-                  getVerfuegbareAufgaben().map((aufgabe) => (
-                    <SelectItem key={aufgabe.id} value={aufgabe.name}>
-                      {aufgabe.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-              {(!kannTechnischeAbnahme || !kannEndabnahme || !technischeAbnahmeBestanden) && (
-                <p className="text-xs text-slate-500 dark:text-muted-foreground mt-1 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {!kannTechnischeAbnahme && !kannEndabnahme && (
-                    <span>Sie haben keine Berechtigung für Abnahme-Aufgaben</span>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+            {/* Aufgabe */}
+            <FormField
+              control={form.control}
+              name="aufgabe"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Aufgabe *</FormLabel>
+                  <FormControl>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={aufgabenLoading}
+                    >
+                      <SelectTrigger className={form.formState.errors.aufgabe ? "border-red-500" : ""}>
+                        <SelectValue placeholder={aufgabenLoading ? "Lade Aufgaben..." : "Aufgabe auswählen"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {aufgabenLoading ? (
+                          <SelectItem value="loading" disabled>Lade Aufgaben...</SelectItem>
+                        ) : aufgaben.length === 0 ? (
+                          <SelectItem value="no-tasks" disabled>Keine Aufgaben verfügbar</SelectItem>
+                        ) : (
+                          getVerfuegbareAufgaben().map((aufgabe) => (
+                            <SelectItem key={aufgabe.id} value={aufgabe.name}>
+                              {aufgabe.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  {(!kannTechnischeAbnahme || !kannEndabnahme || !technischeAbnahmeBestanden) && (
+                    <p className="text-xs text-slate-500 dark:text-muted-foreground mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {!kannTechnischeAbnahme && !kannEndabnahme && (
+                        <span>Sie haben keine Berechtigung für Abnahme-Aufgaben</span>
+                      )}
+                      {!kannTechnischeAbnahme && kannEndabnahme && (
+                        <span>Technische Abnahme erfordert spezielle Berechtigung</span>
+                      )}
+                      {kannTechnischeAbnahme && !kannEndabnahme && (
+                        <span>Endabnahme erfordert spezielle Berechtigung</span>
+                      )}
+                      {kannEndabnahme && !technischeAbnahmeBestanden && (
+                        <span>Endabnahme ist erst nach erfolgreicher Technischer Abnahme möglich</span>
+                      )}
+                    </p>
                   )}
-                  {!kannTechnischeAbnahme && kannEndabnahme && (
-                    <span>Technische Abnahme erfordert spezielle Berechtigung</span>
-                  )}
-                  {kannTechnischeAbnahme && !kannEndabnahme && (
-                    <span>Endabnahme erfordert spezielle Berechtigung</span>
-                  )}
-                  {kannEndabnahme && !technischeAbnahmeBestanden && (
-                    <span>Endabnahme ist erst nach erfolgreicher Technischer Abnahme möglich</span>
-                  )}
-                </p>
+                  <FormMessage />
+                </FormItem>
               )}
-            </Select>
-            {errors.aufgabe && (
-              <p className="text-sm text-red-500 mt-1">{errors.aufgabe}</p>
-            )}
-          </div>
+            />
 
           {/* Checkliste */}
           {showCheckliste && (
@@ -664,53 +649,71 @@ export function ProtokollForm({
             </div>
           )}
 
-          {/* Details */}
-          <div>
-            <Label htmlFor="details">Details (optional)</Label>
-            <Textarea
-              id="details"
-              value={formData.details}
-              onChange={(e) =>
-                setFormData({ ...formData, details: e.target.value })
-              }
-              placeholder="Zusätzliche Informationen..."
-              rows={3}
+            {/* Details */}
+            <FormField
+              control={form.control}
+              name="details"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Details (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      placeholder="Zusätzliche Informationen..."
+                      rows={3}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          {/* Zeitaufwand */}
-          <div>
-            <Label htmlFor="zeitaufwand">Zeitaufwand (Stunden) *</Label>
-            <Input
-              id="zeitaufwand"
-              type="number"
-              step="0.5"
-              min="0.5"
-              value={formData.zeitaufwand}
-              onChange={(e) => {
-                const value = parseFloat(e.target.value) || 0;
-                setFormData({ ...formData, zeitaufwand: value });
-                setErrors({ ...errors, zeitaufwand: undefined });
-              }}
-              className={errors.zeitaufwand ? "border-red-500" : ""}
+            {/* Zeitaufwand */}
+            <FormField
+              control={form.control}
+              name="zeitaufwand"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Zeitaufwand (Stunden) *</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      value={field.value}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        field.onChange(value);
+                      }}
+                      className={form.formState.errors.zeitaufwand ? "border-red-500" : ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            {errors.zeitaufwand && (
-              <p className="text-sm text-red-500 mt-1">{errors.zeitaufwand}</p>
+
+            {/* Komponenten-Checklisten-Fehler */}
+            {komponentenChecklistenFehler && (
+              <div className="p-3 rounded-lg border bg-red-50 border-red-200">
+                <p className="text-sm text-red-800">{komponentenChecklistenFehler}</p>
+              </div>
             )}
-          </div>
 
-          {/* Komponenten-Checklisten-Fehler */}
-          {komponentenChecklistenFehler && (
-            <div className="p-3 rounded-lg border bg-red-50 border-red-200">
-              <p className="text-sm text-red-800">{komponentenChecklistenFehler}</p>
-            </div>
-          )}
+            {/* Root Error */}
+            {form.formState.errors.root && (
+              <div className="p-3 rounded-lg border bg-red-50 border-red-200">
+                <p className="text-sm text-red-800">{form.formState.errors.root.message}</p>
+              </div>
+            )}
 
-          {/* Submit */}
-          <Button type="submit" className="w-full">
-            Protokoll erstellen
-          </Button>
-        </form>
+            {/* Submit */}
+            <Button type="submit" className="w-full">
+              Protokoll erstellen
+            </Button>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );
