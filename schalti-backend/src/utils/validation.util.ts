@@ -63,7 +63,7 @@ export const createChatMessageSchema = z.object({
 // Checkliste Validation
 export const createChecklisteSchema = z.object({
   name: z.string().min(1, "Name ist erforderlich"),
-  typ: z.enum(["technisch", "endabnahme", "allgemein"]),
+  typ: z.enum(["allgemein", "komponenten"]),
   items: z.array(
     z.object({
       id: z.string(),

@@ -14,7 +14,7 @@ export class ChecklisteController {
 
       let checklisten;
       if (typ && typeof typ === "string") {
-        if (["technisch", "endabnahme", "allgemein"].includes(typ)) {
+        if (["allgemein", "komponenten"].includes(typ)) {
           checklisten = await ChecklisteService.getChecklistenByTyp(typ as any);
         } else {
           checklisten = await ChecklisteService.getAllChecklisten();

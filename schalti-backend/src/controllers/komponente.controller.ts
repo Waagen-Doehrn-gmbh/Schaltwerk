@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware";
 import { KomponenteService } from "../services/komponente.service";
 import { AppError } from "../middleware/error.middleware";
+import { ProjektKomponenteModel } from "../models/projekt-komponente.model";
 import {
   createKomponenteSchema,
   updateKomponenteSchema,
@@ -93,6 +94,46 @@ export class KomponenteController {
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Fehler beim Löschen der Komponente" });
+    }
+  }
+
+  // Projekt-spezifischer Status-Update
+  static async updateStatusInProjekt(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { projektId, komponenteId } = req.params;
+      const { status } = req.body;
+
+      if (!status || !["abgeschlossen", "ausstehend"].includes(status)) {
+        res.status(400).json({ error: "Ungültiger Status. Muss 'abgeschlossen' oder 'ausstehend' sein." });
+        return;
+      }
+
+      const projektKomponente = await KomponenteService.updateKomponenteStatusInProjekt(
+        projektId,
+        komponenteId,
+        status as "abgeschlossen" | "ausstehend"
+      );
+      res.json(projektKomponente);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Fehler beim Aktualisieren des Komponenten-Status" });
+    }
+  }
+
+  // Lade alle Status für ein Projekt
+  static async getStatusByProjekt(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { projektId } = req.params;
+      const projektKomponenten = await ProjektKomponenteModel.findByProjekt(projektId);
+      
+      // Konvertiere zu einem Map für einfachen Zugriff
+      const statusMap: Record<string, "abgeschlossen" | "ausstehend"> = {};
+      projektKomponenten.forEach((pk) => {
+        statusMap[pk.komponenteId] = pk.status;
+      });
+      
+      res.json(statusMap);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Fehler beim Abrufen der Komponenten-Status" });
     }
   }
 }

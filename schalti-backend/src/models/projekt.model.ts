@@ -202,21 +202,31 @@ export class ProjektModel {
     );
     const komponentenIds = projektResult.rows[0]?.komponenten_ids || [];
 
-    // Komponenten-Statistiken basierend auf komponenten_ids
+    // Komponenten-Statistiken basierend auf projekt-spezifischen Status
     let komponenten = 0;
     let gesamtKomponenten = 0;
     
     if (komponentenIds.length > 0) {
-      const komponentenResult = await pool.query(
+      // Verwende projekt-spezifische Status aus projekt_komponenten Tabelle
+      const projektKomponentenResult = await pool.query(
         `SELECT 
           COUNT(*) FILTER (WHERE status = 'abgeschlossen') as komponenten,
           COUNT(*) as gesamt_komponenten
-         FROM komponenten
-         WHERE id = ANY($1::uuid[])`,
-        [komponentenIds]
+         FROM projekt_komponenten
+         WHERE projekt_id = $1 AND komponente_id = ANY($2::uuid[])`,
+        [projektId, komponentenIds]
       );
-      komponenten = parseInt(komponentenResult.rows[0].komponenten) || 0;
-      gesamtKomponenten = parseInt(komponentenResult.rows[0].gesamt_komponenten) || 0;
+      
+      komponenten = parseInt(projektKomponentenResult.rows[0].komponenten) || 0;
+      gesamtKomponenten = parseInt(projektKomponentenResult.rows[0].gesamt_komponenten) || 0;
+      
+      // Falls noch nicht alle Komponenten in projekt_komponenten vorhanden sind,
+      // zähle die fehlenden als "ausstehend"
+      const vorhandeneKomponenten = gesamtKomponenten;
+      if (vorhandeneKomponenten < komponentenIds.length) {
+        gesamtKomponenten = komponentenIds.length;
+        // Die fehlenden sind automatisch "ausstehend", also komponenten bleibt gleich
+      }
     } else {
       // Fallback: Wenn keine komponenten_ids, verwende projekt_id (für alte Daten)
       const komponentenResult = await pool.query(

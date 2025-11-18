@@ -3,6 +3,7 @@ import {
   Komponente,
 } from "../models/komponente.model";
 import { CreateKomponenteInput } from "../models/komponente.model";
+import { ProjektKomponenteModel, ProjektKomponente } from "../models/projekt-komponente.model";
 
 export class KomponenteService {
   static async getAllKomponenten(): Promise<Komponente[]> {
@@ -38,6 +39,26 @@ export class KomponenteService {
 
   static async deleteKomponente(id: string): Promise<void> {
     return KomponenteModel.delete(id);
+  }
+
+  // Projekt-spezifische Status-Operationen
+  static async updateKomponenteStatusInProjekt(
+    projektId: string,
+    komponenteId: string,
+    status: "abgeschlossen" | "ausstehend"
+  ): Promise<ProjektKomponente> {
+    return ProjektKomponenteModel.updateStatus(projektId, komponenteId, status);
+  }
+
+  static async getKomponenteStatusInProjekt(
+    projektId: string,
+    komponenteId: string
+  ): Promise<"abgeschlossen" | "ausstehend" | null> {
+    const projektKomponente = await ProjektKomponenteModel.findByProjektAndKomponente(
+      projektId,
+      komponenteId
+    );
+    return projektKomponente?.status || null;
   }
 }
 

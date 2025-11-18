@@ -14,7 +14,7 @@ export class ChecklisteService {
   }
 
   static async getChecklistenByTyp(
-    typ: "technisch" | "endabnahme" | "allgemein"
+    typ: "allgemein" | "komponenten"
   ): Promise<Checkliste[]> {
     return ChecklisteModel.findByTyp(typ);
   }

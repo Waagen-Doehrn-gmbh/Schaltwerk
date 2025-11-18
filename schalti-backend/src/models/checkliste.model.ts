@@ -10,7 +10,7 @@ export interface ChecklisteItem {
 export interface Checkliste {
   id: string;
   name: string;
-  typ: "technisch" | "endabnahme" | "allgemein";
+  typ: "allgemein" | "komponenten";
   items: ChecklisteItem[];
   createdAt: Date;
   updatedAt: Date;
@@ -18,7 +18,7 @@ export interface Checkliste {
 
 export interface CreateChecklisteInput {
   name: string;
-  typ: "technisch" | "endabnahme" | "allgemein";
+  typ: "allgemein" | "komponenten";
   items: ChecklisteItem[];
 }
 
@@ -55,7 +55,7 @@ export class ChecklisteModel {
   }
 
   static async findByTyp(
-    typ: "technisch" | "endabnahme" | "allgemein"
+    typ: "allgemein" | "komponenten"
   ): Promise<Checkliste[]> {
     const result = await pool.query(
       "SELECT * FROM checklisten WHERE typ = $1 ORDER BY name",

@@ -25,6 +25,12 @@ router.put(
   KomponenteController.update
 );
 router.delete("/:id", authMiddleware, KomponenteController.delete);
+router.get("/projekt/:projektId/status", authMiddleware, KomponenteController.getStatusByProjekt);
+router.put(
+  "/projekt/:projektId/:komponenteId/status",
+  authMiddleware,
+  KomponenteController.updateStatusInProjekt
+);
 
 export default router;
 
