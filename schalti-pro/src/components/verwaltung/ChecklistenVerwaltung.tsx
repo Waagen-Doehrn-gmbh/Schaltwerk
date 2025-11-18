@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -22,65 +24,87 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Plus, Edit, Trash2, Search, X } from "lucide-react";
-import { checklisteApi, type Checkliste } from "@/lib/api";
+import { useChecklisten, useCreateCheckliste, useUpdateCheckliste, useDeleteCheckliste } from "@/lib/hooks";
 import { Badge } from "@/components/ui/badge";
-import { useChecklisten } from "@/components/verwaltung/ChecklistenContext";
+import { useChecklisten as useChecklistenContext } from "@/components/verwaltung/ChecklistenContext";
+import type { Checkliste } from "@/types";
+
+const checklisteSchema = z.object({
+  name: z.string().min(1, "Name ist erforderlich"),
+  typ: z.enum(["technisch", "endabnahme", "allgemein"]),
+  items: z.array(z.object({
+    id: z.string().optional(),
+    text: z.string(),
+  })).min(1, "Mindestens ein Item ist erforderlich"),
+});
+
+type ChecklisteFormData = z.infer<typeof checklisteSchema>;
 
 export function ChecklistenVerwaltung() {
-  const { checklisten, updateCheckliste, addCheckliste, deleteCheckliste: deleteFromContext, isLoading: contextLoading, refreshChecklisten } = useChecklisten();
-  const isLoading = contextLoading;
-  const [error, setError] = useState<string | null>(null);
+  const { checklisten, updateCheckliste, addCheckliste, deleteCheckliste: deleteFromContext, isLoading: contextLoading, refreshChecklisten } = useChecklistenContext();
+  const createMutation = useCreateCheckliste();
+  const updateMutation = useUpdateCheckliste();
+  const deleteMutation = useDeleteCheckliste();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCheckliste, setEditingCheckliste] = useState<Checkliste | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [typFilter, setTypFilter] = useState<"alle" | "technisch" | "endabnahme" | "allgemein">("alle");
-  const [formData, setFormData] = useState({
-    name: "",
-    typ: "allgemein" as "technisch" | "endabnahme" | "allgemein",
-    items: [{ id: "", text: "" }] as { id: string; text: string }[],
+
+  const form = useForm<ChecklisteFormData>({
+    resolver: zodResolver(checklisteSchema),
+    defaultValues: {
+      name: "",
+      typ: "allgemein",
+      items: [{ id: "", text: "" }],
+    },
   });
 
-  // Formular zurücksetzen
-  const resetForm = () => {
-    setFormData({
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "items",
+  });
+
+  const isLoading = contextLoading;
+
+  // Dialog öffnen für neue Checkliste
+  const handleNewCheckliste = () => {
+    form.reset({
       name: "",
       typ: "allgemein",
       items: [{ id: "", text: "" }],
     });
     setEditingCheckliste(null);
-  };
-
-  // Dialog öffnen für neue Checkliste
-  const handleNewCheckliste = () => {
-    resetForm();
     setIsDialogOpen(true);
   };
 
   // Dialog öffnen für Bearbeitung
   const handleEditCheckliste = (checkliste: Checkliste) => {
     setEditingCheckliste(checkliste);
-    setFormData({
+    form.reset({
       name: checkliste.name,
       typ: checkliste.typ,
       items: checkliste.items.length > 0 
-        ? checkliste.items 
+        ? checkliste.items.map(item => ({ id: item.id, text: item.text }))
         : [{ id: "", text: "" }],
     });
     setIsDialogOpen(true);
   };
 
   // Checkliste speichern
-  const handleSaveCheckliste = async () => {
-    if (!formData.name.trim()) {
-      alert("Bitte geben Sie einen Namen für die Checkliste ein.");
-      return;
-    }
-
+  const onSubmit = async (data: ChecklisteFormData) => {
     // Validiere Items
-    const validItems = formData.items.filter((item) => item.text.trim() !== "");
+    const validItems = data.items.filter((item) => item.text.trim() !== "");
     if (validItems.length === 0) {
-      alert("Bitte fügen Sie mindestens ein Checklisten-Item hinzu.");
+      form.setError("items", { message: "Bitte fügen Sie mindestens ein Checklisten-Item hinzu." });
       return;
     }
 
@@ -92,79 +116,48 @@ export function ChecklistenVerwaltung() {
 
     try {
       if (editingCheckliste) {
-        // Checkliste bearbeiten
-        const updated = await checklisteApi.update(editingCheckliste.id, {
-          name: formData.name.trim(),
-          typ: formData.typ,
-          items: itemsWithIds,
+        const updated = await updateMutation.mutateAsync({
+          id: editingCheckliste.id,
+          data: {
+            name: data.name.trim(),
+            typ: data.typ,
+            items: itemsWithIds,
+          },
         });
         updateCheckliste(editingCheckliste.id, updated);
-        // Aktualisiere auch den Context
         await refreshChecklisten();
       } else {
-        // Neue Checkliste erstellen
-        const neueCheckliste = await checklisteApi.create({
-          name: formData.name.trim(),
-          typ: formData.typ,
+        const neueCheckliste = await createMutation.mutateAsync({
+          name: data.name.trim(),
+          typ: data.typ,
           items: itemsWithIds,
         });
         addCheckliste(neueCheckliste);
-        // Aktualisiere auch den Context
         await refreshChecklisten();
       }
 
       setIsDialogOpen(false);
-      resetForm();
+      form.reset();
     } catch (error: any) {
-      alert("Fehler beim Speichern: " + (error.message || "Unbekannter Fehler"));
-      console.error("Error saving checklist:", error);
+      form.setError("root", {
+        message: error.message || "Fehler beim Speichern",
+      });
     }
   };
 
   // Checkliste löschen
   const handleDeleteCheckliste = async (checkliste: Checkliste) => {
-    if (
-      !confirm(
-        `Möchten Sie die Checkliste "${checkliste.name}" wirklich löschen?`
-      )
-    ) {
+    if (!confirm(`Möchten Sie die Checkliste "${checkliste.name}" wirklich löschen?`)) {
       return;
     }
     
     try {
-      await checklisteApi.delete(checkliste.id);
+      await deleteMutation.mutateAsync(checkliste.id);
       deleteFromContext(checkliste.id);
-      // Aktualisiere auch den Context
       await refreshChecklisten();
     } catch (error: any) {
       alert("Fehler beim Löschen: " + (error.message || "Unbekannter Fehler"));
-      console.error("Error deleting checklist:", error);
     }
-  };
-
-  // Item hinzufügen
-  const handleAddItem = () => {
-    setFormData((prev) => ({
-      ...prev,
-      items: [...prev.items, { id: "", text: "" }],
-    }));
-  };
-
-  // Item entfernen
-  const handleRemoveItem = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index),
-    }));
-  };
-
-  // Item aktualisieren
-  const handleUpdateItem = (index: number, text: string) => {
-    setFormData((prev) => {
-      const updated = [...prev.items];
-      updated[index] = { ...updated[index], text };
-      return { ...prev, items: updated };
-    });
   };
 
   // Gefilterte Checklisten
@@ -194,14 +187,6 @@ export function ChecklistenVerwaltung() {
     return (
       <div className="flex items-center justify-center py-12">
         <p className="text-slate-500 dark:text-muted-foreground">Lade Checklisten...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-red-500">Fehler: {error}</p>
       </div>
     );
   }
@@ -236,92 +221,139 @@ export function ChecklistenVerwaltung() {
                   : "Erstellen Sie eine neue Checkliste. Wählen Sie 'Allgemein' für normale Aufgaben oder einen Abnahme-Typ."}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="checkliste-name">Name *</Label>
-                  <Input
-                    id="checkliste-name"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="z.B. Standard Technische Abnahme"
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="z.B. Standard Technische Abnahme"
+                            disabled={createMutation.isPending || updateMutation.isPending}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="typ"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Typ *</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          disabled={createMutation.isPending || updateMutation.isPending}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="allgemein">Allgemein</SelectItem>
+                            <SelectItem value="technisch">Technische Abnahme</SelectItem>
+                            <SelectItem value="endabnahme">Endabnahme</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="checkliste-typ">Typ *</Label>
-                  <Select
-                    value={formData.typ}
-                    onValueChange={(value: "technisch" | "endabnahme" | "allgemein") =>
-                      setFormData({ ...formData, typ: value })
-                    }
-                  >
-                    <SelectTrigger id="checkliste-typ">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="allgemein">Allgemein</SelectItem>
-                      <SelectItem value="technisch">Technische Abnahme</SelectItem>
-                      <SelectItem value="endabnahme">Endabnahme</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
-              {/* Items */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Checklisten-Items *</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddItem}
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Item hinzufügen
-                  </Button>
-                </div>
-                <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-4">
-                  {formData.items.map((item, index) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <div className="flex-1">
-                        <Textarea
-                          value={item.text}
-                          onChange={(e) => handleUpdateItem(index, e.target.value)}
-                          placeholder={`Item ${index + 1}...`}
-                          className="min-h-[60px]"
-                        />
-                      </div>
-                      {formData.items.length > 1 && (
+                {/* Items */}
+                <FormField
+                  control={form.control}
+                  name="items"
+                  render={() => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Checklisten-Items *</FormLabel>
                         <Button
                           type="button"
                           variant="outline"
-                          size="icon-sm"
-                          onClick={() => handleRemoveItem(index)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 mt-1"
+                          size="sm"
+                          onClick={() => append({ id: "", text: "" })}
+                          className="gap-2"
+                          disabled={createMutation.isPending || updateMutation.isPending}
                         >
-                          <X className="h-4 w-4" />
+                          <Plus className="h-4 w-4" />
+                          Item hinzufügen
                         </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-slate-500">
-                  {formData.items.filter((item) => item.text.trim() !== "").length} Item(s) ausgefüllt
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button onClick={handleSaveCheckliste}>
-                {editingCheckliste ? "Speichern" : "Anlegen"}
-              </Button>
-            </DialogFooter>
+                      </div>
+                      <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-4">
+                        {fields.map((field, index) => (
+                          <div key={field.id} className="flex items-start gap-2">
+                            <div className="flex-1">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.text`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <Textarea
+                                        {...field}
+                                        placeholder={`Item ${index + 1}...`}
+                                        className="min-h-[60px]"
+                                        disabled={createMutation.isPending || updateMutation.isPending}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            {fields.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon-sm"
+                                onClick={() => remove(index)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 mt-1"
+                                disabled={createMutation.isPending || updateMutation.isPending}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {form.watch("items").filter((item) => item.text.trim() !== "").length} Item(s) ausgefüllt
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.formState.errors.root && (
+                  <p className="text-sm text-red-500">{form.formState.errors.root.message}</p>
+                )}
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    Abbrechen
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    {editingCheckliste ? "Speichern" : "Anlegen"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>

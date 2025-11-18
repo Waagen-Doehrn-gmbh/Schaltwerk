@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,36 +24,62 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Edit, Trash2, QrCode } from "lucide-react";
-import { projektApi, komponenteApi, authApi } from "@/lib/api";
-import type { Projekt, ProjektStatus, User } from "@/types";
+import { useProjekte, useKomponenten, useMe, useCreateProjekt, useUpdateProjekt, useDeleteProjekt } from "@/lib/hooks";
+import type { Projekt, ProjektStatus } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { QRCodeDialog } from "@/components/projekt/QRCodeDialog";
 
+const projektSchema = z.object({
+  name: z.string().min(1, "Projektname ist erforderlich"),
+  standort: z.string().min(1, "Standort ist erforderlich"),
+  status: z.enum(["planung", "in_bearbeitung", "abgeschlossen"]),
+  schaltschrankNummer: z.string().optional(),
+  komponentenIds: z.array(z.string()),
+});
+
+type ProjektFormData = z.infer<typeof projektSchema>;
+
 export function ProjektVerwaltung() {
-  const [projekte, setProjekte] = useState<Projekt[]>([]);
-  const [komponenten, setKomponenten] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { data: projekte = [], isLoading: projekteLoading, error: projekteError } = useProjekte();
+  const { data: komponenten = [], isLoading: komponentenLoading } = useKomponenten();
+  const { data: currentUser } = useMe();
+  const createMutation = useCreateProjekt();
+  const updateMutation = useUpdateProjekt();
+  const deleteMutation = useDeleteProjekt();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProjekt, setEditingProjekt] = useState<Projekt | null>(null);
   const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false);
   const [projektForQR, setProjektForQR] = useState<{ id: string; name: string; schaltschrankNummer?: string } | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    standort: "",
-    status: "planung" as ProjektStatus,
-    schaltschrankNummer: "",
-    komponentenIds: [] as string[],
+
+  const form = useForm<ProjektFormData>({
+    resolver: zodResolver(projektSchema),
+    defaultValues: {
+      name: "",
+      standort: "",
+      status: "planung",
+      schaltschrankNummer: "",
+      komponentenIds: [],
+    },
   });
 
-  // Formular zurücksetzen
-  const resetForm = () => {
-    setFormData({
+  const isLoading = projekteLoading || komponentenLoading;
+  const error = projekteError ? (projekteError as Error).message : null;
+
+  // Dialog öffnen für neues Projekt
+  const handleNewProjekt = () => {
+    form.reset({
       name: "",
       standort: "",
       status: "planung",
@@ -58,27 +87,13 @@ export function ProjektVerwaltung() {
       komponentenIds: [],
     });
     setEditingProjekt(null);
-  };
-
-  // Dialog öffnen für neues Projekt
-  const handleNewProjekt = () => {
-    resetForm();
     setIsDialogOpen(true);
   };
 
   // Dialog öffnen für Bearbeitung
   const handleEditProjekt = (projekt: Projekt) => {
-    console.log("handleEditProjekt called with:", projekt);
-    console.log("projekt.komponentenIds:", projekt.komponentenIds);
     setEditingProjekt(projekt);
-    setFormData({
-      name: projekt.name,
-      standort: projekt.standort,
-      status: projekt.status,
-      schaltschrankNummer: projekt.schaltschrankNummer || "",
-      komponentenIds: projekt.komponentenIds || [],
-    });
-    console.log("FormData set to:", {
+    form.reset({
       name: projekt.name,
       standort: projekt.standort,
       status: projekt.status,
@@ -88,156 +103,39 @@ export function ProjektVerwaltung() {
     setIsDialogOpen(true);
   };
 
-  // Lade Projekte und Komponenten vom Backend
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const [projekteData, komponentenData, userData] = await Promise.all([
-          projektApi.getAll(),
-          komponenteApi.getAll(),
-          authApi.getMe().catch(() => null),
-        ]);
-        
-        if (userData) {
-          setCurrentUser(userData as User);
-        }
-        
-        const transformed = projekteData.map((p: any) => {
-          const komponentenIds = p.komponenten_ids || p.komponentenIds || [];
-          console.log(`Project ${p.name} - komponenten_ids from API:`, p.komponenten_ids, "komponentenIds:", p.komponentenIds, "final:", komponentenIds);
-          return {
-            ...p,
-            createdAt: new Date(p.created_at || p.createdAt),
-            stats: p.stats || {
-              stunden: 0,
-              eintraege: 0,
-              komponenten: 0,
-              gesamtKomponenten: 0,
-            },
-            schaltschrankNummer: p.schaltschrank_nummer || p.schaltschrankNummer,
-            komponentenIds: komponentenIds,
-          };
-        });
-        
-        console.log("Transformed projects:", transformed);
-        setProjekte(transformed);
-        setKomponenten(komponentenData);
-      } catch (err: any) {
-        setError(err.message || "Fehler beim Laden der Daten");
-        console.error("Error loading data:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, []);
-
   // Komponente auswählen/abwählen
-  const handleKomponenteToggle = (komponenteId: string) => {
-    console.log("handleKomponenteToggle called with:", komponenteId);
-    setFormData((prev) => {
-      const isSelected = prev.komponentenIds.includes(komponenteId);
-      console.log("Current komponentenIds:", prev.komponentenIds);
-      console.log("Is selected:", isSelected);
-      const newKomponentenIds = isSelected
-        ? prev.komponentenIds.filter((id) => id !== komponenteId)
-        : [...prev.komponentenIds, komponenteId];
-      console.log("New komponentenIds:", newKomponentenIds);
-      return {
-        ...prev,
-        komponentenIds: newKomponentenIds,
-      };
-    });
+  const handleKomponenteToggle = (komponenteId: string, checked: boolean) => {
+    const currentIds = form.getValues("komponentenIds");
+    const newIds = checked
+      ? [...currentIds, komponenteId]
+      : currentIds.filter((id) => id !== komponenteId);
+    form.setValue("komponentenIds", newIds);
   };
 
   // Projekt speichern
-  const handleSaveProjekt = async () => {
-    console.log("handleSaveProjekt called");
-    console.log("formData:", formData);
-    
-    if (!formData.name || !formData.standort) {
-      alert("Bitte füllen Sie alle Pflichtfelder aus.");
-      return;
-    }
-
+  const onSubmit = async (data: ProjektFormData) => {
     try {
       if (editingProjekt) {
-        // Projekt bearbeiten
-        const updateData = {
-          name: formData.name,
-          standort: formData.standort,
-          status: formData.status,
-          schaltschrankNummer: formData.schaltschrankNummer || undefined,
-          komponentenIds: formData.komponentenIds,
-        };
-        console.log("Sending update data:", JSON.stringify(updateData, null, 2));
-        const updated = await projektApi.update(editingProjekt.id, updateData);
-        console.log("Received updated project:", updated);
-        console.log("komponentenIds from API:", (updated as any).komponenten_ids || (updated as any).komponentenIds);
-        
-        const transformed = {
-          ...(updated as any),
-          createdAt: new Date((updated as any).created_at || (updated as any).createdAt),
-          stats: (updated as any).stats || {
-            stunden: 0,
-            eintraege: 0,
-            komponenten: 0,
-            gesamtKomponenten: 0,
+        await updateMutation.mutateAsync({
+          id: editingProjekt.id,
+          data: {
+            name: data.name,
+            standort: data.standort,
+            status: data.status,
+            schaltschrankNummer: data.schaltschrankNummer || undefined,
+            komponentenIds: data.komponentenIds,
           },
-          schaltschrankNummer: (updated as any).schaltschrank_nummer || (updated as any).schaltschrankNummer,
-          komponentenIds: (updated as any).komponenten_ids || (updated as any).komponentenIds || [],
-        };
-        
-        console.log("Transformed project with komponentenIds:", transformed.komponentenIds);
-        
-        setProjekte((prev) =>
-          prev.map((p) => (p.id === editingProjekt.id ? transformed : p))
-        );
-        
-        // Lade die Daten neu, um sicherzustellen, dass alles synchronisiert ist
-        const [projekteData] = await Promise.all([
-          projektApi.getAll(),
-        ]);
-        const refreshed = projekteData.map((p: any) => ({
-          ...p,
-          createdAt: new Date(p.created_at || p.createdAt),
-          stats: p.stats || {
-            stunden: 0,
-            eintraege: 0,
-            komponenten: 0,
-            gesamtKomponenten: 0,
-          },
-          schaltschrankNummer: p.schaltschrank_nummer || p.schaltschrankNummer,
-          komponentenIds: p.komponenten_ids || p.komponentenIds || [],
-        }));
-        setProjekte(refreshed);
+        });
       } else {
-        // Neues Projekt erstellen
-        const neuesProjekt = await projektApi.create({
-          name: formData.name,
-          standort: formData.standort,
+        const neuesProjekt = await createMutation.mutateAsync({
+          name: data.name,
+          standort: data.standort,
           status: "planung",
-          schaltschrankNummer: formData.schaltschrankNummer || undefined,
-          komponentenIds: formData.komponentenIds,
+          schaltschrankNummer: data.schaltschrankNummer || undefined,
+          komponentenIds: data.komponentenIds,
         });
         
-        const transformed = {
-          ...(neuesProjekt as any),
-          createdAt: new Date((neuesProjekt as any).created_at || (neuesProjekt as any).createdAt),
-          stats: (neuesProjekt as any).stats || {
-            stunden: 0,
-            eintraege: 0,
-            komponenten: 0,
-            gesamtKomponenten: 0,
-          },
-          schaltschrankNummer: (neuesProjekt as any).schaltschrank_nummer || (neuesProjekt as any).schaltschrankNummer,
-          komponentenIds: (neuesProjekt as any).komponenten_ids || (neuesProjekt as any).komponentenIds || [],
-        };
-        
-        setProjekte((prev) => [...prev, transformed]);
-        
-        // QR-Code-Dialog für neues Projekt öffnen
+        const transformed = neuesProjekt as any;
         setProjektForQR({ 
           id: transformed.id, 
           name: transformed.name,
@@ -247,10 +145,11 @@ export function ProjektVerwaltung() {
       }
 
       setIsDialogOpen(false);
-      resetForm();
+      form.reset();
     } catch (error: any) {
-      alert("Fehler beim Speichern: " + (error.message || "Unbekannter Fehler"));
-      console.error("Error saving project:", error);
+      form.setError("root", {
+        message: error.message || "Fehler beim Speichern",
+      });
     }
   };
 
@@ -261,11 +160,9 @@ export function ProjektVerwaltung() {
     }
     
     try {
-      await projektApi.delete(projekt.id);
-      setProjekte((prev) => prev.filter((p) => p.id !== projekt.id));
+      await deleteMutation.mutateAsync(projekt.id);
     } catch (error: any) {
       alert("Fehler beim Löschen: " + (error.message || "Unbekannter Fehler"));
-      console.error("Error deleting project:", error);
     }
   };
 
@@ -342,116 +239,170 @@ export function ProjektVerwaltung() {
                   : "Erstellen Sie ein neues Projekt für einen Schaltschrank-Auftrag. Neue Projekte werden automatisch auf 'Planung' gesetzt."}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Projektname *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="z.B. Bolz Einfahrt"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="standort">Standort *</Label>
-                <Input
-                  id="standort"
-                  value={formData.standort}
-                  onChange={(e) => setFormData({ ...formData, standort: e.target.value })}
-                  placeholder="z.B. Dorsten"
-                />
-              </div>
-              {editingProjekt && (
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value: ProjektStatus) =>
-                      setFormData({ ...formData, status: value })
-                    }
-                  >
-                    <SelectTrigger id="status">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="planung">Planung</SelectItem>
-                      <SelectItem value="in_bearbeitung">In Bearbeitung</SelectItem>
-                      <SelectItem value="abgeschlossen">Abgeschlossen</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {!editingProjekt && (
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Input
-                    id="status"
-                    value="Planung"
-                    disabled
-                    className="bg-slate-100"
-                  />
-                  <p className="text-xs text-slate-500 dark:text-muted-foreground">
-                    Neue Projekte werden automatisch auf "Planung" gesetzt.
-                  </p>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="schaltschrankNummer">Schaltschranknummer</Label>
-                <Input
-                  id="schaltschrankNummer"
-                  value={formData.schaltschrankNummer}
-                  onChange={(e) =>
-                    setFormData({ ...formData, schaltschrankNummer: e.target.value })
-                  }
-                  placeholder="z.B. SS-2024-001"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Komponenten auswählen</Label>
-                <div className="border rounded-lg p-4 max-h-64 overflow-y-auto space-y-2">
-                  {komponenten.length === 0 ? (
-                    <p className="text-sm text-slate-500 dark:text-muted-foreground text-center py-4">
-                      Keine Komponenten verfügbar. Bitte legen Sie zuerst Komponenten an.
-                    </p>
-                  ) : (
-                    komponenten.map((komponente) => (
-                      <div
-                        key={komponente.id}
-                        className="flex items-center space-x-2 p-2 hover:bg-slate-50 rounded"
-                      >
-                        <Checkbox
-                          id={`komp-${komponente.id}`}
-                          checked={formData.komponentenIds.includes(komponente.id)}
-                          onCheckedChange={() => handleKomponenteToggle(komponente.id)}
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Projektname *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="z.B. Bolz Einfahrt"
+                          disabled={createMutation.isPending || updateMutation.isPending}
                         />
-                        <label
-                          htmlFor={`komp-${komponente.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>{komponente.name}</span>
-                            <span className="text-xs text-slate-500 dark:text-muted-foreground ml-2">
-                              {komponente.artikelNummer}
-                            </span>
-                          </div>
-                        </label>
-                      </div>
-                    ))
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-muted-foreground">
-                  {formData.komponentenIds.length} Komponente{formData.komponentenIds.length !== 1 ? "n" : ""} ausgewählt
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button onClick={handleSaveProjekt}>
-                {editingProjekt ? "Speichern" : "Anlegen"}
-              </Button>
-            </DialogFooter>
+                />
+                <FormField
+                  control={form.control}
+                  name="standort"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Standort *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="z.B. Dorsten"
+                          disabled={createMutation.isPending || updateMutation.isPending}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {editingProjekt && (
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          disabled={createMutation.isPending || updateMutation.isPending}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="planung">Planung</SelectItem>
+                            <SelectItem value="in_bearbeitung">In Bearbeitung</SelectItem>
+                            <SelectItem value="abgeschlossen">Abgeschlossen</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                {!editingProjekt && (
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Input
+                      id="status"
+                      value="Planung"
+                      disabled
+                      className="bg-slate-100"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                      Neue Projekte werden automatisch auf "Planung" gesetzt.
+                    </p>
+                  </div>
+                )}
+                <FormField
+                  control={form.control}
+                  name="schaltschrankNummer"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Schaltschranknummer</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="z.B. SS-2024-001"
+                          disabled={createMutation.isPending || updateMutation.isPending}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="komponentenIds"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Komponenten auswählen</FormLabel>
+                      <div className="border rounded-lg p-4 max-h-64 overflow-y-auto space-y-2">
+                        {komponenten.length === 0 ? (
+                          <p className="text-sm text-slate-500 dark:text-muted-foreground text-center py-4">
+                            Keine Komponenten verfügbar. Bitte legen Sie zuerst Komponenten an.
+                          </p>
+                        ) : (
+                          komponenten.map((komponente) => {
+                            const komponentenIds = form.watch("komponentenIds");
+                            const isChecked = komponentenIds.includes(komponente.id);
+                            return (
+                              <div
+                                key={komponente.id}
+                                className="flex items-center space-x-2 p-2 hover:bg-slate-50 rounded"
+                              >
+                                <Checkbox
+                                  id={`komp-${komponente.id}`}
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => handleKomponenteToggle(komponente.id, checked as boolean)}
+                                />
+                                <label
+                                  htmlFor={`komp-${komponente.id}`}
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span>{komponente.name}</span>
+                                    <span className="text-xs text-slate-500 dark:text-muted-foreground ml-2">
+                                      {komponente.artikelNummer}
+                                    </span>
+                                  </div>
+                                </label>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                        {form.watch("komponentenIds").length} Komponente{form.watch("komponentenIds").length !== 1 ? "n" : ""} ausgewählt
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.formState.errors.root && (
+                  <p className="text-sm text-red-500">{form.formState.errors.root.message}</p>
+                )}
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    Abbrechen
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                  >
+                    {editingProjekt ? "Speichern" : "Anlegen"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
         )}
