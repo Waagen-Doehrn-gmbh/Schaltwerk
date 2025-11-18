@@ -1,0 +1,99 @@
+services:
+  # PostgreSQL Datenbank
+  postgres:
+    image: postgres:16-alpine
+    container_name: schalti-postgres-dev
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-schalti_pro}
+    ports:
+      - "${DB_PORT:-7002}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - schalti-network
+
+  # Backend API (Development)
+  backend:
+    build:
+      context: ./schalti-backend
+      dockerfile: Dockerfile
+    container_name: schalti-backend-dev
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-schalti_pro}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:7000}
+    ports:
+      - "7001:3001"
+    volumes:
+      # Mount Source Code für Hot Reload
+      - ./schalti-backend/src:/app/src:ro
+      - ./schalti-backend/package.json:/app/package.json:ro
+      - ./schalti-backend/tsconfig.json:/app/tsconfig.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - schalti-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    command: sh -c "sleep 10 && npx tsx src/migrations/run-migrations.ts && npm run dev"
+
+  # Frontend Next.js (Development mit Hot Reload)
+  frontend:
+    build:
+      context: ./schalti-pro
+      dockerfile: Dockerfile.dev
+    container_name: schalti-frontend-dev
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:7001}
+      WATCHPACK_POLLING: "true"  # Für Windows File System
+    ports:
+      - "7000:3000"
+    volumes:
+      # Mount Source Code für Hot Reload
+      - ./schalti-pro/src:/app/src
+      - ./schalti-pro/public:/app/public
+      - ./schalti-pro/package.json:/app/package.json:ro
+      - ./schalti-pro/next.config.ts:/app/next.config.ts:ro
+      - ./schalti-pro/tsconfig.json:/app/tsconfig.json:ro
+      - ./schalti-pro/tailwind.config.ts:/app/tailwind.config.ts:ro
+      - ./schalti-pro/postcss.config.mjs:/app/postcss.config.mjs:ro
+      # Exclude node_modules und .next
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - schalti-network
+    restart: unless-stopped
+    command: npm run dev
+
+networks:
+  schalti-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+
+

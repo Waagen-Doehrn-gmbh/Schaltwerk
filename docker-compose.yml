@@ -1,0 +1,85 @@
+services:
+  # PostgreSQL Datenbank
+  postgres:
+    image: postgres:16-alpine
+    container_name: schalti-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-schalti_pro}
+    ports:
+      - "${DB_PORT:-7002}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - schalti-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./schalti-backend
+      dockerfile: Dockerfile
+    container_name: schalti-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-schalti_pro}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:7000}
+    ports:
+      - "7001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - schalti-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    command: sh -c "sleep 10 && npx tsx src/migrations/run-migrations.ts && npm start"
+
+  # Frontend Next.js
+  frontend:
+    build:
+      context: ./schalti-pro
+      dockerfile: Dockerfile
+    container_name: schalti-frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:7001}
+    ports:
+      - "7000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - schalti-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  schalti-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+

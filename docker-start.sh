@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Docker Start Script für Schalti
+# Dieses Script baut und startet alle Docker Container
+
+echo "🐳 Starte Docker Setup für Schalti..."
+echo ""
+
+# Prüfe ob Docker läuft
+if ! docker info > /dev/null 2>&1; then
+    echo "❌ Docker ist nicht gestartet. Bitte starten Sie Docker Desktop."
+    exit 1
+fi
+
+# Prüfe ob docker-compose verfügbar ist
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+    echo "❌ docker-compose ist nicht verfügbar."
+    exit 1
+fi
+
+# Verwende docker compose (neue Syntax) falls verfügbar, sonst docker-compose
+COMPOSE_CMD="docker-compose"
+if docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+fi
+
+echo "📦 Baue Docker Images..."
+$COMPOSE_CMD build --no-cache
+
+if [ $? -ne 0 ]; then
+    echo "❌ Fehler beim Bauen der Images"
+    exit 1
+fi
+
+echo ""
+echo "🚀 Starte Container..."
+$COMPOSE_CMD up -d
+
+if [ $? -ne 0 ]; then
+    echo "❌ Fehler beim Starten der Container"
+    exit 1
+fi
+
+echo ""
+echo "⏳ Warte auf Services..."
+sleep 5
+
+echo ""
+echo "📊 Container Status:"
+$COMPOSE_CMD ps
+
+echo ""
+echo "✅ Docker Setup abgeschlossen!"
+echo ""
+echo "Services sind verfügbar unter:"
+echo "  - Frontend:  http://localhost:7000"
+echo "  - Backend:   http://localhost:7001"
+echo "  - PostgreSQL: localhost:7002"
+echo ""
+echo "Logs anzeigen mit: $COMPOSE_CMD logs -f"
+echo "Container stoppen mit: $COMPOSE_CMD down"
+
