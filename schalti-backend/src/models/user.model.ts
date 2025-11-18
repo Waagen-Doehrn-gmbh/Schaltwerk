@@ -1,13 +1,15 @@
 import { pool } from "../config/database";
 import { hashPassword, comparePassword } from "../utils/password.util";
 
+export type UserRole = "admin" | "monteur" | "technische_abnahme" | "endabnahme";
+
 export interface User {
   id: string;
   email: string;
   passwordHash: string;
   name: string;
   initialen: string;
-  rolle: "admin" | "mitarbeiter";
+  rolle: UserRole;
   berechtigungen?: string[];
   avatarUrl?: string;
   createdAt: Date;
@@ -19,7 +21,7 @@ export interface CreateUserInput {
   password: string;
   name: string;
   initialen: string;
-  rolle: "admin" | "mitarbeiter";
+  rolle: UserRole;
   berechtigungen?: string[];
   avatarUrl?: string;
 }
@@ -29,7 +31,7 @@ export interface UserPublic {
   email: string;
   name: string;
   initialen: string;
-  rolle: "admin" | "mitarbeiter";
+  rolle: UserRole;
   berechtigungen?: string[];
   avatarUrl?: string;
 }

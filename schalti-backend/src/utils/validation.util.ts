@@ -11,7 +11,7 @@ export const registerSchema = z.object({
   password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
   name: z.string().min(2, "Name muss mindestens 2 Zeichen lang sein"),
   initialen: z.string().min(2).max(10),
-  rolle: z.enum(["admin", "mitarbeiter"]),
+  rolle: z.enum(["admin", "monteur", "technische_abnahme", "endabnahme"]),
   berechtigungen: z.array(z.enum(["abnahme", "endabnahme"])).optional(),
 });
 
@@ -83,4 +83,32 @@ export const createAufgabeSchema = z.object({
 });
 
 export const updateAufgabeSchema = createAufgabeSchema.partial();
+
+// User Validation (für Admin)
+export const createUserSchema = z.object({
+  email: z.string().email("Ungültige E-Mail-Adresse"),
+  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
+  name: z.string().min(2, "Name muss mindestens 2 Zeichen lang sein"),
+  initialen: z.string().min(2, "Initialen müssen mindestens 2 Zeichen lang sein").max(10, "Initialen dürfen maximal 10 Zeichen lang sein"),
+  rolle: z.enum(["admin", "monteur", "technische_abnahme", "endabnahme"]),
+  berechtigungen: z.array(z.enum(["abnahme", "endabnahme"])).optional(),
+  avatarUrl: z.string().url().optional().or(z.literal("")),
+});
+
+export const updateUserSchema = createUserSchema.partial().extend({
+  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein").optional(),
+});
+
+// Profile Update Schema (für Benutzer, die ihre eigenen Daten aktualisieren)
+export const updateProfileSchema = z.object({
+  name: z.string().min(2, "Name muss mindestens 2 Zeichen lang sein").optional(),
+  initialen: z.string().min(2, "Initialen müssen mindestens 2 Zeichen lang sein").max(10, "Initialen dürfen maximal 10 Zeichen lang sein").optional(),
+  avatarUrl: z.string().url().optional().or(z.literal("")),
+});
+
+// Password Change Schema
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Aktuelles Passwort ist erforderlich"),
+  newPassword: z.string().min(6, "Neues Passwort muss mindestens 6 Zeichen lang sein"),
+});
 

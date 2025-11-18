@@ -11,6 +11,7 @@ import komponenteRoutes from "./routes/komponente.routes";
 import chatRoutes from "./routes/chat.routes";
 import checklisteRoutes from "./routes/checkliste.routes";
 import aufgabeRoutes from "./routes/aufgabe.routes";
+import userRoutes from "./routes/user.routes";
 
 const app: Express = express();
 
@@ -35,6 +36,7 @@ app.use("/api/komponenten", komponenteRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/checklisten", checklisteRoutes);
 app.use("/api/aufgaben", aufgabeRoutes);
+app.use("/api/users", userRoutes);
 
 // Error Handling
 app.use(errorMiddleware);

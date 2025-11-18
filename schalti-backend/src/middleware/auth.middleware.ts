@@ -55,3 +55,55 @@ export function adminMiddleware(
   next();
 }
 
+// Hilfsfunktionen für Rollenprüfungen
+export function kannProjektAnlegen(rolle: string): boolean {
+  return rolle === "admin";
+}
+
+export function kannTechnischeAbnahme(rolle: string): boolean {
+  return rolle === "admin" || rolle === "technische_abnahme" || rolle === "endabnahme";
+}
+
+export function kannEndabnahme(rolle: string): boolean {
+  return rolle === "admin" || rolle === "endabnahme";
+}
+
+// Middleware für Projekt-Erstellung (nur Admin)
+export function projektAnlegenMiddleware(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.user || !kannProjektAnlegen(req.user.rolle)) {
+    res.status(403).json({ error: "Zugriff verweigert - Nur Administratoren können Projekte anlegen" });
+    return;
+  }
+  next();
+}
+
+// Middleware für Technische Abnahme
+export function technischeAbnahmeMiddleware(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.user || !kannTechnischeAbnahme(req.user.rolle)) {
+    res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Technische Abnahme" });
+    return;
+  }
+  next();
+}
+
+// Middleware für Endabnahme
+export function endabnahmeMiddleware(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  if (!req.user || !kannEndabnahme(req.user.rolle)) {
+    res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Endabnahme" });
+    return;
+  }
+  next();
+}
+

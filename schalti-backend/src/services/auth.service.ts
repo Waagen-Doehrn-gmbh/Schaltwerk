@@ -17,7 +17,11 @@ export interface LoginResult {
 export class AuthService {
   static async login(username: string, password: string): Promise<LoginResult> {
     console.log("AuthService.login called with username:", username);
-    const user = await UserModel.findByName(username);
+    // Versuche zuerst nach Name, dann nach E-Mail zu suchen
+    let user = await UserModel.findByName(username);
+    if (!user) {
+      user = await UserModel.findByEmail(username);
+    }
     console.log("User found:", user ? `Yes (${user.name})` : "No");
     
     if (!user) {

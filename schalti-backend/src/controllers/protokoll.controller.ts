@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { AuthRequest } from "../middleware/auth.middleware";
+import { AuthRequest, kannTechnischeAbnahme, kannEndabnahme } from "../middleware/auth.middleware";
 import { ProtokollService } from "../services/protokoll.service";
 import { AppError } from "../middleware/error.middleware";
 import {
@@ -59,6 +59,22 @@ export class ProtokollController {
       }
 
       const data = createProtokollSchema.parse(req.body);
+      
+      // Rollenprüfung für Abnahmen
+      if (data.aufgabe === "Technische Abnahme" || data.abnahmeTyp === "technisch") {
+        if (!kannTechnischeAbnahme(req.user.rolle)) {
+          res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Technische Abnahme" });
+          return;
+        }
+      }
+      
+      if (data.aufgabe === "Endabnahme" || data.abnahmeTyp === "endabnahme") {
+        if (!kannEndabnahme(req.user.rolle)) {
+          res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Endabnahme" });
+          return;
+        }
+      }
+
       const protokoll = await ProtokollService.createProtokoll({
         ...data,
         userId: req.user.id,
@@ -77,8 +93,29 @@ export class ProtokollController {
 
   static async update(req: AuthRequest, res: Response): Promise<void> {
     try {
+      if (!req.user) {
+        res.status(401).json({ error: "Nicht authentifiziert" });
+        return;
+      }
+
       const { id } = req.params;
       const data = updateProtokollSchema.parse(req.body);
+      
+      // Rollenprüfung für Abnahmen
+      if (data.aufgabe === "Technische Abnahme" || data.abnahmeTyp === "technisch") {
+        if (!kannTechnischeAbnahme(req.user.rolle)) {
+          res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Technische Abnahme" });
+          return;
+        }
+      }
+      
+      if (data.aufgabe === "Endabnahme" || data.abnahmeTyp === "endabnahme") {
+        if (!kannEndabnahme(req.user.rolle)) {
+          res.status(403).json({ error: "Zugriff verweigert - Keine Berechtigung für Endabnahme" });
+          return;
+        }
+      }
+
       const protokoll = await ProtokollService.updateProtokoll(id, {
         ...data,
         datum: data.datum ? new Date(data.datum) : undefined,

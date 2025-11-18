@@ -14,6 +14,8 @@ const migrations = [
   "008_seed_data.sql",
   "009_alter_komponenten_nullable.sql",
   "010_add_komponenten_ids_to_projekte.sql",
+  "011_update_user_roles.sql",
+  "012_set_stefan_admin.sql",
 ];
 
 async function runMigrations() {

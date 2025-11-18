@@ -28,8 +28,12 @@ export class ChecklisteModel {
       "SELECT * FROM checklisten ORDER BY name"
     );
     return result.rows.map((row) => ({
-      ...row,
-      items: row.items,
+      id: String(row.id), // Stelle sicher, dass ID ein String ist
+      name: row.name,
+      typ: row.typ,
+      items: Array.isArray(row.items) ? row.items : (typeof row.items === 'string' ? JSON.parse(row.items) : []),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }));
   }
 
@@ -39,9 +43,14 @@ export class ChecklisteModel {
       [id]
     );
     if (!result.rows[0]) return null;
+    const row = result.rows[0];
     return {
-      ...result.rows[0],
-      items: result.rows[0].items,
+      id: String(row.id), // Stelle sicher, dass ID ein String ist
+      name: row.name,
+      typ: row.typ,
+      items: Array.isArray(row.items) ? row.items : (typeof row.items === 'string' ? JSON.parse(row.items) : []),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -53,8 +62,12 @@ export class ChecklisteModel {
       [typ]
     );
     return result.rows.map((row) => ({
-      ...row,
-      items: row.items,
+      id: String(row.id), // Stelle sicher, dass ID ein String ist
+      name: row.name,
+      typ: row.typ,
+      items: Array.isArray(row.items) ? row.items : (typeof row.items === 'string' ? JSON.parse(row.items) : []),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }));
   }
 
@@ -65,9 +78,14 @@ export class ChecklisteModel {
        RETURNING *`,
       [input.name, input.typ, JSON.stringify(input.items)]
     );
+    const row = result.rows[0];
     return {
-      ...result.rows[0],
-      items: result.rows[0].items,
+      id: String(row.id), // Stelle sicher, dass ID ein String ist
+      name: row.name,
+      typ: row.typ,
+      items: Array.isArray(row.items) ? row.items : (typeof row.items === 'string' ? JSON.parse(row.items) : []),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -99,9 +117,14 @@ export class ChecklisteModel {
       `UPDATE checklisten SET ${fields.join(", ")} WHERE id = $${paramCount} RETURNING *`,
       values
     );
+    const row = result.rows[0];
     return {
-      ...result.rows[0],
-      items: result.rows[0].items,
+      id: String(row.id), // Stelle sicher, dass ID ein String ist
+      name: row.name,
+      typ: row.typ,
+      items: Array.isArray(row.items) ? row.items : (typeof row.items === 'string' ? JSON.parse(row.items) : []),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 

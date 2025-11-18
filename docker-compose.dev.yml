@@ -39,10 +39,14 @@ services:
     ports:
       - "7001:3001"
     volumes:
-      # Mount Source Code für Hot Reload
-      - ./schalti-backend/src:/app/src:ro
+      # Mount Source Code für Hot Reload (ohne :ro für tsx watch)
+      - ./schalti-backend/src:/app/src
       - ./schalti-backend/package.json:/app/package.json:ro
       - ./schalti-backend/tsconfig.json:/app/tsconfig.json:ro
+      - ./schalti-backend/package-lock.json:/app/package-lock.json:ro
+      # Exclude node_modules und dist
+      - /app/node_modules
+      - /app/dist
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,6 +71,7 @@ services:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:7001}
       WATCHPACK_POLLING: "true"  # Für Windows File System
+      CHOKIDAR_USEPOLLING: "true"  # Für Windows File System
     ports:
       - "7000:3000"
     volumes:
@@ -74,10 +79,12 @@ services:
       - ./schalti-pro/src:/app/src
       - ./schalti-pro/public:/app/public
       - ./schalti-pro/package.json:/app/package.json:ro
+      - ./schalti-pro/package-lock.json:/app/package-lock.json:ro
       - ./schalti-pro/next.config.ts:/app/next.config.ts:ro
       - ./schalti-pro/tsconfig.json:/app/tsconfig.json:ro
       - ./schalti-pro/tailwind.config.ts:/app/tailwind.config.ts:ro
       - ./schalti-pro/postcss.config.mjs:/app/postcss.config.mjs:ro
+      - ./schalti-pro/.eslintrc.json:/app/.eslintrc.json:ro
       # Exclude node_modules und .next
       - /app/node_modules
       - /app/.next
