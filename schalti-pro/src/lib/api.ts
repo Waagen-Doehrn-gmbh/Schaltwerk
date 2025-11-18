@@ -4,46 +4,25 @@ import type { User } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7001";
 
-// Token-Management
-export const getAuthToken = (): string | null => {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("auth_token");
-};
-
-export const setAuthToken = (token: string): void => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("auth_token", token);
-};
-
-export const removeAuthToken = (): void => {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem("auth_token");
-};
-
 // API Request Helper
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = getAuthToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string> || {}),
   };
 
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
+    credentials: "include", // Send cookies with every request
   });
 
   if (!response.ok) {
     if (response.status === 401) {
-      // Token ungültig, entfernen
-      removeAuthToken();
+      // Token ungültig, redirect to login
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }
@@ -80,13 +59,10 @@ async function apiRequest<T>(
 // Auth API
 export const authApi = {
   login: async (username: string, password: string) => {
-    const response = await apiRequest<{ token: string; user: any }>("/api/auth/login", {
+    const response = await apiRequest<{ user: any }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
-    if (response.token) {
-      setAuthToken(response.token);
-    }
     return response;
   },
 
@@ -94,6 +70,12 @@ export const authApi = {
     return apiRequest("/api/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  },
+
+  logout: async () => {
+    return apiRequest("/api/auth/logout", {
+      method: "POST",
     });
   },
 
