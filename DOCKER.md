@@ -1,6 +1,6 @@
-# Docker Setup für Schalti
+# Docker Setup für SchaltWerk
 
-Diese Anleitung erklärt, wie Sie das Schalti-Projekt mit Docker starten.
+Diese Anleitung erklärt, wie Sie das SchaltWerk-Projekt mit Docker starten.
 
 ## Voraussetzungen
 
@@ -86,13 +86,13 @@ docker-compose up -d
 ### In Container einsteigen
 ```bash
 # Backend Container
-docker exec -it schalti-backend sh
+docker exec -it schaltwerk-backend sh
 
 # Frontend Container
-docker exec -it schalti-frontend sh
+docker exec -it schaltwerk-frontend sh
 
 # PostgreSQL Container
-docker exec -it schalti-postgres psql -U postgres -d schalti_pro
+docker exec -it schaltwerk-postgres psql -U postgres -d schalti_pro
 ```
 
 ## Datenbank-Migrationen
@@ -102,7 +102,7 @@ Die Datenbank-Migrationen werden automatisch beim Start des Backend-Containers a
 Falls Sie die Migrationen manuell ausführen möchten:
 
 ```bash
-docker exec -it schalti-backend npm run migrate
+docker exec -it schaltwerk-backend npm run migrate
 ```
 
 ## Troubleshooting

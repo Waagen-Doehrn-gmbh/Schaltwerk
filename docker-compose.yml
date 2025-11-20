@@ -2,7 +2,7 @@ services:
   # PostgreSQL Datenbank
   postgres:
     image: postgres:16-alpine
-    container_name: schalti-postgres
+    container_name: schaltwerk-postgres
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -17,14 +17,14 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - schalti-network
+      - schaltwerk-network
 
   # Backend API
   backend:
     build:
       context: ./schalti-backend
       dockerfile: Dockerfile
-    container_name: schalti-backend
+    container_name: schaltwerk-backend
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -42,7 +42,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - schalti-network
+      - schaltwerk-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
@@ -57,7 +57,7 @@ services:
     build:
       context: ./schalti-pro
       dockerfile: Dockerfile
-    container_name: schalti-frontend
+    container_name: schaltwerk-frontend
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:7001}
@@ -67,7 +67,7 @@ services:
       backend:
         condition: service_healthy
     networks:
-      - schalti-network
+      - schaltwerk-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
@@ -77,7 +77,7 @@ services:
       start_period: 40s
 
 networks:
-  schalti-network:
+  schaltwerk-network:
     driver: bridge
 
 volumes:

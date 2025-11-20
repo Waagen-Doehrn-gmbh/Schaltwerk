@@ -1,4 +1,4 @@
-# Lokale Entwicklung - Schalti Pro
+# Lokale Entwicklung - SchaltWerk
 
 Diese Anleitung beschreibt, wie Sie die Anwendung lokal ohne Docker entwickeln können.
 

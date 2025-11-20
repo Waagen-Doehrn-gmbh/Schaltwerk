@@ -1,6 +1,6 @@
-# n8n Workflows für Schalti Pro
+# n8n Workflows für SchaltWerk
 
-Diese Workflows integrieren Schalti Pro mit Microsoft Teams, um Arbeitsschritte und Chat-Nachrichten automatisch zu dokumentieren.
+Diese Workflows integrieren SchaltWerk mit Microsoft Teams, um Arbeitsschritte und Chat-Nachrichten automatisch zu dokumentieren.
 
 ## Voraussetzungen
 
@@ -47,8 +47,8 @@ Oder direkt in den Workflow-Nodes die Chat-ID eintragen.
 ### 4. Workflows importieren
 
 1. Öffne n8n → **Workflows** → **Import from File**
-2. Importiere `schalti-protokolle-to-teams.json`
-3. Importiere `schalti-chat-to-teams.json`
+2. Importiere `schalti-protokolle-to-teams.json` (oder `schaltwerk-protokolle-to-teams.json`)
+3. Importiere `schalti-chat-to-teams.json` (oder `schaltwerk-chat-to-teams.json`)
 
 ### 5. Webhook-URLs kopieren
 

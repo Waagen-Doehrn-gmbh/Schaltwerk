@@ -323,17 +323,17 @@ export function AufgabenVerwaltung() {
 
       {/* Aufgaben Liste */}
       {filteredAufgaben.length > 0 ? (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredAufgaben.map((aufgabe) => {
             const checklisteName = getChecklisteName(aufgabe.checklisteId);
             const rolleLabel = getRolleLabel(aufgabe.erforderlicheRolle);
             return (
               <Card key={aufgabe.id}>
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-slate-900">{aufgabe.name}</p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-900 mb-2 break-words">{aufgabe.name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
                         {checklisteName && (
                           <Badge variant="outline" className="gap-1">
                             <ListChecks className="h-3 w-3" />
@@ -347,7 +347,7 @@ export function AufgabenVerwaltung() {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-shrink-0">
                       <Button
                         variant="outline"
                         size="sm"

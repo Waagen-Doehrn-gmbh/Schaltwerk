@@ -81,7 +81,7 @@ export function Sidebar() {
             onClick={close}
           >
             <Zap className="h-5 w-5 md:h-6 md:w-6 lg:h-6 lg:w-6 xl:h-6 xl:w-6 text-blue-500 flex-shrink-0" />
-            <span className="text-white dark:text-sidebar-foreground font-semibold text-base md:text-base lg:text-base xl:text-lg whitespace-nowrap">Schalti Pro</span>
+            <span className="text-white dark:text-sidebar-foreground font-semibold text-base md:text-base lg:text-base xl:text-lg whitespace-nowrap">SchaltWerk</span>
           </Link>
           {/* Close Button nur auf mobilen Geräten und Tablets */}
           <button
@@ -120,7 +120,7 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className="px-4 md:px-5 lg:px-5 xl:px-6 py-4 border-t border-slate-800 dark:border-sidebar-border">
-          <p className="text-xs text-slate-500 dark:text-sidebar-foreground/60">Schalti Pro v0.1.0</p>
+          <p className="text-xs text-slate-500 dark:text-sidebar-foreground/60">SchaltWerk V0.5 pwrd by Döhrn Soft</p>
         </div>
       </div>
     </>

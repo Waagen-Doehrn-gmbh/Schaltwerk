@@ -18,6 +18,7 @@ interface QRCodeDialogProps {
   onOpenChange: (open: boolean) => void;
   projektId: string;
   projektName: string;
+  standort?: string;
   schaltschrankNummer?: string;
 }
 
@@ -26,9 +27,13 @@ export function QRCodeDialog({
   onOpenChange,
   projektId,
   projektName,
+  standort,
   schaltschrankNummer,
 }: QRCodeDialogProps) {
   const qrRef = useRef<HTMLDivElement>(null);
+  
+  // Kombiniere Name und Standort für die Anzeige
+  const projektDisplayName = standort ? `${projektName} ${standort}` : projektName;
 
   // Erstelle die URL für das Projekt (verwende Schaltschranknummer falls vorhanden)
   const projektIdentifier = schaltschrankNummer || projektId;
@@ -56,7 +61,7 @@ export function QRCodeDialog({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>QR-Code - ${projektName}</title>
+          <title>QR-Code - ${projektDisplayName}</title>
           <style>
             @page {
               margin: 20mm;
@@ -118,7 +123,7 @@ export function QRCodeDialog({
         </head>
         <body>
           <div class="qr-container">
-            <div class="qr-title">${projektName}</div>
+            <div class="qr-title">${projektDisplayName}</div>
             ${schaltschrankNummer ? `<div class="qr-subtitle">Schaltschrank-Nr.: ${schaltschrankNummer}</div>` : ''}
             <div class="qr-code">
               <img src="${svgUrl}" alt="QR Code" style="width: 400px; height: 400px;" />
@@ -161,7 +166,7 @@ export function QRCodeDialog({
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `qr-code-${projektName.replace(/\s+/g, "-")}.png`;
+        a.download = `qr-code-${projektDisplayName.replace(/\s+/g, "-")}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -178,14 +183,14 @@ export function QRCodeDialog({
         <DialogHeader>
           <DialogTitle>QR-Code für Projekt</DialogTitle>
           <DialogDescription>
-            Scannen Sie diesen QR-Code, um direkt zum Projekt "{projektName}" zu gelangen.
+            Scannen Sie diesen QR-Code, um direkt zum Projekt "{projektDisplayName}" zu gelangen.
           </DialogDescription>
         </DialogHeader>
         <div ref={qrRef} className="flex flex-col items-center space-y-4 py-4">
           <Card className="p-6">
             <CardContent className="flex flex-col items-center space-y-4">
               <div className="text-center">
-                <p className="font-semibold text-3xl mb-4">{projektName}</p>
+                <p className="font-semibold text-3xl mb-4">{projektDisplayName}</p>
                 {schaltschrankNummer && (
                   <p className="text-xl text-slate-600 mb-6">Schaltschrank-Nr.: {schaltschrankNummer}</p>
                 )}

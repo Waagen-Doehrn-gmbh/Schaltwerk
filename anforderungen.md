@@ -1,4 +1,4 @@
-Ich baue "Schalti Pro" - eine Dokumentations-Software für Schaltschrankbau-Fertigung.
+Ich baue "SchaltWerk" - eine Dokumentations-Software für Schaltschrankbau-Fertigung.
 Zielgruppe: Interne Nutzung für 2-15 Mitarbeiter (Desktop & Tablet)
 Hauptfunktionen:
 
@@ -117,7 +117,7 @@ Haupt-Layout mit:
 Sidebar (260px, fixed left):
 
 Dark Theme (bg-slate-900)
-Logo + "Schalti Pro" Text mit Zap Icon
+Logo + "SchaltWerk" Text mit Zap Icon
 Navigation Items:
 
 Dashboard (Home Icon)

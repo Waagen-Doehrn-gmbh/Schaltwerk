@@ -6,6 +6,10 @@ import type { User } from "@/types";
 function getApiUrl(): string {
   // In der Browser-Umgebung: Verwende die aktuelle Host-Adresse
   if (typeof window !== "undefined") {
+    // Verwende Umgebungsvariable wenn verfügbar, sonst aktuelle Host-Adresse
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      return process.env.NEXT_PUBLIC_API_URL;
+    }
     const host = window.location.hostname;
     const port = "7001";
     return `http://${host}:${port}`;
@@ -302,7 +306,7 @@ export interface CreateUserData {
   password: string;
   name: string;
   initialen: string;
-  rolle: "admin" | "monteur" | "technische_abnahme" | "endabnahme";
+  rolle: "admin" | "analyse" | "monteur" | "technische_abnahme" | "endabnahme";
   berechtigungen?: string[];
   avatarUrl?: string;
 }

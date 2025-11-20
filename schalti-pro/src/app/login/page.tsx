@@ -61,7 +61,7 @@ export default function LoginPage() {
             <Lock className="w-6 h-6 md:w-7 md:h-7 lg:w-7 lg:h-7 xl:w-8 xl:h-8" />
           </div>
           <h1 className="text-2xl md:text-2xl lg:text-2xl xl:text-3xl font-bold tracking-tight text-foreground">
-            Schalti Pro
+            SchaltWerk
           </h1>
           <p className="text-sm md:text-sm lg:text-sm xl:text-base text-muted-foreground">
             Melden Sie sich an, um fortzufahren
@@ -179,7 +179,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-xs text-center text-muted-foreground">
-          © {new Date().getFullYear()} Schalti Pro. Alle Rechte vorbehalten.
+          © {new Date().getFullYear()} SchaltWerk. Alle Rechte vorbehalten.
         </p>
       </div>
     </div>

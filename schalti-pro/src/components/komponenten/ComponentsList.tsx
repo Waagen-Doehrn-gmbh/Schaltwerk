@@ -147,9 +147,9 @@ export function ComponentsList({
     const komponente = komponenten.find((k) => k.id === komponenteId);
     if (!komponente) return;
 
-    // Wenn ausstehend, dann prüfe ob Checkliste ausklappbar ist
+    // Wenn ausstehend, dann prüfe ob Checkliste vorhanden ist
     if (komponente.status === "ausstehend") {
-      // Wenn Komponente eine Checkliste hat, klappe sie aus/ein
+      // Wenn Komponente eine Checkliste hat, klappe sie nur aus/ein (ohne Checkbox zu aktivieren)
       if (komponente.checklisteId) {
         setExpandedKomponentenIds((prev) => {
           const newSet = new Set(prev);
@@ -160,8 +160,24 @@ export function ComponentsList({
           }
           return newSet;
         });
+        return; // Nur Checkliste ausklappen, keine Checkbox-Aktivierung
       }
-      return; // Checkbox übernimmt die Auswahl oder Checkliste wird ausgeklappt
+      
+      // Wenn keine Checkliste vorhanden ist, dann Checkbox umschalten
+      const isCurrentlySelected = selectedIds.has(komponenteId);
+      const newCheckedState = !isCurrentlySelected;
+      
+      // Aktualisiere Checkbox-Auswahl
+      setSelectedIds((prev) => {
+        const newSet = new Set(prev);
+        if (newCheckedState) {
+          newSet.add(komponenteId);
+        } else {
+          newSet.delete(komponenteId);
+        }
+        return newSet;
+      });
+      return;
     }
 
     // Bei abgeschlossenen Komponenten: Status zurücksetzen (mit Berechtigungsprüfung)
@@ -205,7 +221,7 @@ export function ComponentsList({
     });
   };
 
-  // Checkbox-Handler
+  // Checkbox-Handler (nur für Mehrfachauswahl über die Aktionsleiste)
   const handleCheckboxChange = (komponenteId: string, checked: boolean) => {
     setSelectedIds((prev) => {
       const newSet = new Set(prev);
@@ -216,6 +232,7 @@ export function ComponentsList({
       }
       return newSet;
     });
+    // Keine automatische Checkliste-Anzeige - nur für Mehrfachauswahl
   };
 
   // Alle ausstehenden Komponenten auswählen

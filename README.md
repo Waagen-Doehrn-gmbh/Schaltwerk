@@ -1,10 +1,10 @@
-# Schalti Pro
+# SchaltWerk
 
 Dokumentations-Software für Schaltschrankbau - Eine moderne Web-Anwendung zur Verwaltung von Projekten, Protokollen, Komponenten und Checklisten im Schaltschrankbau.
 
 ## 📋 Übersicht
 
-Schalti Pro ist eine Full-Stack-Anwendung zur digitalen Dokumentation und Verwaltung von Schaltschrank-Projekten. Die Software ermöglicht es, Projekte zu verwalten, Arbeitsprotokolle zu erstellen, Komponenten zu dokumentieren und Abnahme-Checklisten zu führen.
+SchaltWerk ist eine Full-Stack-Anwendung zur digitalen Dokumentation und Verwaltung von Schaltschrank-Projekten. Die Software ermöglicht es, Projekte zu verwalten, Arbeitsprotokolle zu erstellen, Komponenten zu dokumentieren und Abnahme-Checklisten zu führen.
 
 ## 🚀 Features
 
@@ -121,7 +121,7 @@ Nach dem ersten Setup können Sie sich mit folgenden Test-Benutzern anmelden:
 ## 📁 Projektstruktur
 
 ```
-Schalti/
+SchaltWerk/
 ├── schalti-backend/          # Express Backend API
 │   ├── src/
 │   │   ├── controllers/      # Request Handler
@@ -133,7 +133,7 @@ Schalti/
 │   │   └── utils/           # Hilfsfunktionen
 │   └── Dockerfile
 │
-├── schalti-pro/              # Next.js Frontend
+├── schalti-pro/              # Next.js Frontend (SchaltWerk)
 │   ├── src/
 │   │   ├── app/              # Next.js App Router
 │   │   ├── components/       # React Components
@@ -259,7 +259,7 @@ Proprietär - Alle Rechte vorbehalten
 
 ## 👥 Autoren
 
-Schalti Pro Development Team
+SchaltWerk Development Team
 
 ## 🙏 Danksagungen
 

@@ -20,6 +20,7 @@ const migrations = [
   "014_add_analyse_role.sql",
   "015_add_komponenten_typ_to_checklisten.sql",
   "016_create_projekt_komponenten.sql",
+  "017_fix_checklisten_typ_constraint.sql",
 ];
 
 async function runMigrations() {

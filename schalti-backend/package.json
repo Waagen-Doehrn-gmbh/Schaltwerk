@@ -1,7 +1,7 @@
 {
   "name": "schalti-backend",
   "version": "1.0.0",
-  "description": "Backend API für Schalti Pro - Schaltschrankbau-Dokumentation",
+  "description": "Backend API für SchaltWerk - Schaltschrankbau-Dokumentation",
   "main": "dist/app.js",
   "scripts": {
     "dev": "tsx watch src/app.ts",

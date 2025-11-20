@@ -26,6 +26,7 @@ export function KomponenteCard({
   const isAusstehend = komponente.status === "ausstehend";
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
+    // Verhindere, dass der Card-Klick ausgelöst wird, wenn direkt auf Checkbox geklickt wird
     e.stopPropagation();
   };
 
@@ -41,9 +42,7 @@ export function KomponenteCard({
         "p-3 md:p-3 lg:p-3 xl:p-4 transition-all duration-200 overflow-hidden",
         disabled 
           ? "opacity-60 cursor-not-allowed" 
-          : isAusstehend && showCheckbox 
-            ? "cursor-default hover:shadow-md" 
-            : "cursor-pointer hover:shadow-md",
+          : "cursor-pointer hover:shadow-md",
         isSelected && "ring-2 ring-blue-500"
       )}
       onClick={disabled ? undefined : onClick}
@@ -54,7 +53,8 @@ export function KomponenteCard({
             checked={isSelected}
             onCheckedChange={handleCheckboxChange}
             onClick={handleCheckboxClick}
-            className="mt-1 flex-shrink-0"
+            className="mt-1 flex-shrink-0 invisible w-0 h-0"
+            aria-hidden="true"
           />
         )}
         <div className="flex-1 min-w-0">

@@ -134,6 +134,7 @@ export function ProjectHeader({ projekt, onSchaltschrankNummerChange }: ProjectH
         onOpenChange={setQrCodeDialogOpen}
         projektId={projekt.id}
         projektName={projekt.name}
+        standort={projekt.standort}
         schaltschrankNummer={projekt.schaltschrankNummer}
       />
     </>

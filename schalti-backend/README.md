@@ -1,6 +1,6 @@
-# Schalti Backend API
+# SchaltWerk Backend API
 
-Backend API für die Schalti Pro Anwendung - Schaltschrankbau-Dokumentation.
+Backend API für die SchaltWerk Anwendung - Schaltschrankbau-Dokumentation.
 
 ## Tech Stack
 

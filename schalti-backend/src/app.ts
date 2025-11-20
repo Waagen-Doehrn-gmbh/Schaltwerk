@@ -28,10 +28,25 @@ app.use(cors({
     // Erlaube Requests ohne Origin (z.B. Postman, mobile Apps)
     if (!origin) return callback(null, true);
     
+    // Prüfe ob Origin in der erlaubten Liste ist
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Nicht erlaubt durch CORS'));
+      // Erlaube auch IP-Adressen mit Port 7000 (für lokale Netzwerk-Zugriffe)
+      const originUrl = new URL(origin);
+      const isLocalNetwork = originUrl.port === '7000' && (
+        originUrl.hostname === 'localhost' ||
+        originUrl.hostname === '127.0.0.1' ||
+        /^192\.168\.\d+\.\d+$/.test(originUrl.hostname) || // 192.168.x.x
+        /^10\.\d+\.\d+\.\d+$/.test(originUrl.hostname) ||  // 10.x.x.x
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+$/.test(originUrl.hostname) // 172.16-31.x.x
+      );
+      
+      if (isLocalNetwork) {
+        callback(null, true);
+      } else {
+        callback(new Error('Nicht erlaubt durch CORS'));
+      }
     }
   },
   credentials: true,

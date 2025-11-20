@@ -1,4 +1,4 @@
-# Gefundene Bugs in Schalti Pro
+# Gefundene Bugs in SchaltWerk
 
 ## 🔴 Kritische Bugs
 

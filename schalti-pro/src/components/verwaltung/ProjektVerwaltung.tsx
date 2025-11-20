@@ -61,7 +61,7 @@ export function ProjektVerwaltung() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProjekt, setEditingProjekt] = useState<Projekt | null>(null);
   const [qrCodeDialogOpen, setQrCodeDialogOpen] = useState(false);
-  const [projektForQR, setProjektForQR] = useState<{ id: string; name: string; schaltschrankNummer?: string } | null>(null);
+  const [projektForQR, setProjektForQR] = useState<{ id: string; name: string; standort?: string; schaltschrankNummer?: string } | null>(null);
 
   const form = useForm<ProjektFormData>({
     resolver: zodResolver(projektSchema),
@@ -139,6 +139,7 @@ export function ProjektVerwaltung() {
         setProjektForQR({ 
           id: transformed.id, 
           name: transformed.name,
+          standort: transformed.standort,
           schaltschrankNummer: transformed.schaltschrankNummer 
         });
         setQrCodeDialogOpen(true);
@@ -171,6 +172,7 @@ export function ProjektVerwaltung() {
     setProjektForQR({ 
       id: projekt.id, 
       name: projekt.name,
+      standort: projekt.standort,
       schaltschrankNummer: projekt.schaltschrankNummer 
     });
     setQrCodeDialogOpen(true);
@@ -501,6 +503,7 @@ export function ProjektVerwaltung() {
           }}
           projektId={projektForQR.id}
           projektName={projektForQR.name}
+          standort={projektForQR.standort}
           schaltschrankNummer={projektForQR.schaltschrankNummer}
         />
       )}

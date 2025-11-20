@@ -127,7 +127,13 @@ export function BenutzerVerwaltung() {
           form.setError("password", { message: "Passwort muss mindestens 6 Zeichen lang sein" });
           return;
         }
-        await createMutation.mutateAsync(data);
+        await createMutation.mutateAsync({
+          email: data.email,
+          password: data.password,
+          name: data.name,
+          initialen: data.initialen,
+          rolle: data.rolle,
+        });
       }
       setIsDialogOpen(false);
       form.reset();
@@ -345,50 +351,52 @@ export function BenutzerVerwaltung() {
               <p className="text-sm mt-2">Erstellen Sie den ersten Benutzer mit dem Button oben.</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {benutzer.map((user) => (
-                <div
+                <Card
                   key={user.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold">
-                      {user.initialen}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-slate-900 dark:text-foreground">
-                          {user.name}
-                        </h3>
-                        <Badge variant="outline">{ROLE_LABELS[user.rolle]}</Badge>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold flex-shrink-0">
+                        {user.initialen}
                       </div>
-                      <div className="text-sm text-slate-600 dark:text-muted-foreground mt-1">
-                        {user.email && (
-                          <span>{user.email}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-semibold text-slate-900 dark:text-foreground truncate">
+                            {user.name}
+                          </h3>
+                          <Badge variant="outline" className="flex-shrink-0">{ROLE_LABELS[user.rolle]}</Badge>
+                        </div>
+                        <div className="text-sm text-slate-600 dark:text-muted-foreground truncate">
+                          {user.email && (
+                            <span>{user.email}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditUser(user)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {currentUser?.id !== user.id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(user.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    {currentUser?.id !== user.id && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(user.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}

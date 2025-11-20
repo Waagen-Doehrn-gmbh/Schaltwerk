@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Schalti Pro - Dokumentations-Software für Schaltschrankbau",
+  title: "SchaltWerk - Dokumentations-Software für Schaltschrankbau",
   description: "Projektverwaltung, Arbeitsprotokolle und Komponenten-Tracking für Schaltschrankbau-Fertigung",
 };
 

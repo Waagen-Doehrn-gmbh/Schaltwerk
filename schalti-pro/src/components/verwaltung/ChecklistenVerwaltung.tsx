@@ -408,14 +408,14 @@ export function ChecklistenVerwaltung() {
 
       {/* Checklisten Liste */}
       {filteredChecklisten.length > 0 ? (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredChecklisten.map((checkliste) => (
             <Card key={checkliste.id}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg">{checkliste.name}</CardTitle>
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex flex-col gap-2 mt-2">
                       <Badge className={getTypBadge(checkliste.typ)}>
                         {getTypLabel(checkliste.typ)}
                       </Badge>
