@@ -345,8 +345,8 @@ export function ComponentsList({
       <CardContent className="space-y-6">
         {/* Aktionsleiste für Mehrfachauswahl */}
         {showCheckboxes && (
-          <div className="flex items-center justify-between gap-2 p-3 bg-slate-50 dark:bg-muted rounded-lg border border-slate-200 dark:border-border">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 bg-slate-50 dark:bg-muted rounded-lg border border-slate-200 dark:border-border">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
@@ -356,12 +356,14 @@ export function ComponentsList({
                 {allSelected ? (
                   <>
                     <CheckSquare2 className="h-4 w-4" />
-                    Auswahl aufheben
+                    <span className="hidden sm:inline">Auswahl aufheben</span>
+                    <span className="sm:hidden">Aufheben</span>
                   </>
                 ) : (
                   <>
                     <Square className="h-4 w-4" />
-                    Alle auswählen ({ausstehend.length})
+                    <span className="hidden sm:inline">Alle auswählen ({ausstehend.length})</span>
+                    <span className="sm:hidden">Alle ({ausstehend.length})</span>
                   </>
                 )}
               </Button>
@@ -375,10 +377,11 @@ export function ComponentsList({
               <Button
                 size="sm"
                 onClick={handleMarkSelectedAsCompleted}
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto"
               >
-                <Check className="h-4 w-4" />
-                Ausgewählte als abgeschlossen markieren ({selectedIds.size})
+                <Check className="h-4 w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Ausgewählte als abgeschlossen markieren ({selectedIds.size})</span>
+                <span className="sm:hidden">Abgeschlossen ({selectedIds.size})</span>
               </Button>
             )}
           </div>

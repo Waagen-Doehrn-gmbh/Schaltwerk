@@ -18,8 +18,22 @@ import webhookRoutes from "./routes/webhook.routes";
 const app: Express = express();
 
 // Middleware
+// CORS: Unterstützt mehrere Origins (kommagetrennt oder Array)
+const allowedOrigins = config.cors.origin.includes(',')
+  ? config.cors.origin.split(',').map(origin => origin.trim())
+  : [config.cors.origin];
+
 app.use(cors({
-  origin: config.cors.origin,
+  origin: (origin, callback) => {
+    // Erlaube Requests ohne Origin (z.B. Postman, mobile Apps)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Nicht erlaubt durch CORS'));
+    }
+  },
   credentials: true,
 }));
 app.use(cookieParser());

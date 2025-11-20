@@ -35,7 +35,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:7000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:7000,http://192.168.0.202:7000}
     ports:
       - "7001:3001"
     volumes:
@@ -69,7 +69,7 @@ services:
     container_name: schalti-frontend-dev
     environment:
       NODE_ENV: development
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:7001}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://192.168.0.202:7001}
       WATCHPACK_POLLING: "true"  # Für Windows File System
       CHOKIDAR_USEPOLLING: "true"  # Für Windows File System
     ports:

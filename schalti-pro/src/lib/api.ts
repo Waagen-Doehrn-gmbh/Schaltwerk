@@ -2,7 +2,19 @@
 
 import type { User } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7001";
+// Dynamische API-URL: Verwende die aktuelle Host-Adresse für Netzwerk-Zugriff
+function getApiUrl(): string {
+  // In der Browser-Umgebung: Verwende die aktuelle Host-Adresse
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    const port = "7001";
+    return `http://${host}:${port}`;
+  }
+  // Server-seitig: Verwende Umgebungsvariable oder Fallback
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:7001";
+}
+
+const API_URL = getApiUrl();
 
 // API Request Helper
 async function apiRequest<T>(
