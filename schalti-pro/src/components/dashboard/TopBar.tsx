@@ -3,13 +3,14 @@
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronRight, Home, Moon, Sun } from "lucide-react";
+import { ChevronRight, Home, Moon, Sun, Menu } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api";
 import { cn, getAvatarUrl, getDisplayName } from "@/lib/utils";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { useProjekt } from "@/lib/hooks";
+import { useSidebar } from "./SidebarContext";
 import type { User } from "@/types";
 
 function getBreadcrumbs(pathname: string, projektSchaltschrankNummer?: string): { label: string; href: string }[] {
@@ -61,6 +62,7 @@ export function TopBar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { toggle: toggleSidebar } = useSidebar();
   
   // Extrahiere Projekt-ID/Schaltschranknummer aus URL für Breadcrumbs
   const projektMatch = pathname.match(/^\/projekte\/(.+)$/);
@@ -83,6 +85,17 @@ export function TopBar() {
 
   return (
     <div className="sticky top-0 z-10 bg-white dark:bg-background border-b border-slate-200 dark:border-border px-4 md:px-4 lg:px-4 xl:px-6 py-3 md:py-3 lg:py-3 xl:py-4 flex items-center justify-between">
+      {/* Burger Menu Button für mobile und Tablet */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={toggleSidebar}
+        className="lg:hidden h-8 w-8 text-slate-600 dark:text-muted-foreground hover:text-slate-900 dark:hover:text-foreground hover:bg-slate-100 dark:hover:bg-muted mr-2"
+        aria-label="Menü öffnen"
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
+      
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1 md:gap-2 text-xs md:text-xs lg:text-xs xl:text-sm min-w-0 flex-1">
         {breadcrumbs.map((crumb, index) => (
