@@ -1,6 +1,7 @@
 import express, { Express } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import path from "path";
 import { config } from "./config/env";
 import { errorMiddleware } from "./middleware/error.middleware";
 
@@ -14,6 +15,7 @@ import checklisteRoutes from "./routes/checkliste.routes";
 import aufgabeRoutes from "./routes/aufgabe.routes";
 import userRoutes from "./routes/user.routes";
 import webhookRoutes from "./routes/webhook.routes";
+import uploadRoutes from "./routes/upload.routes";
 
 const app: Express = express();
 
@@ -55,6 +57,9 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Statische Dateien für Uploads servieren
+app.use("/api/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
+
 // Health Check
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -70,6 +75,7 @@ app.use("/api/checklisten", checklisteRoutes);
 app.use("/api/aufgaben", aufgabeRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/webhook", webhookRoutes);
+app.use("/api/upload", uploadRoutes);
 
 // Error Handling
 app.use(errorMiddleware);

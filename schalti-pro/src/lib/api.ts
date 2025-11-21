@@ -354,3 +354,38 @@ export const chatApi = {
   },
 };
 
+// Upload API
+export interface UploadResponse {
+  success: boolean;
+  filename: string;
+  url: string;
+  size: number;
+  mimetype: string;
+}
+
+export const uploadApi = {
+  uploadChatImage: async (file: File): Promise<UploadResponse> => {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const response = await fetch(`${API_URL}/api/upload/chat`, {
+      method: "POST",
+      body: formData,
+      credentials: "include", // Send cookies with every request
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Token ungültig, redirect to login
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+      }
+      const error = await response.json().catch(() => ({ error: "Unbekannter Fehler" }));
+      throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+};
+

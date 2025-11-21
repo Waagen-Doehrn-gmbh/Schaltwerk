@@ -53,9 +53,20 @@ export function ProjectChat({
   // Track when chat is opened to mark messages as read
   useEffect(() => {
     if (isOpen && !isMinimized) {
+      // Wenn Chat geöffnet wird, markiere alle aktuellen Nachrichten als gelesen
       setLastOpenedAt(new Date());
     }
-  }, [isOpen, isMinimized, localMessages]);
+  }, [isOpen, isMinimized]);
+  
+  // Wenn Chat geöffnet ist und neue Nachrichten kommen, aktualisiere lastOpenedAt
+  // damit sie sofort als gelesen markiert werden
+  useEffect(() => {
+    if (isOpen && !isMinimized) {
+      setLastOpenedAt(new Date());
+    }
+    // Wenn Chat geschlossen ist, wird lastOpenedAt NICHT aktualisiert,
+    // damit neue Nachrichten als ungelesen gezählt werden
+  }, [localMessages.length, isOpen, isMinimized]);
 
   // Count unread messages (messages after last opened time)
   const unreadCount = lastOpenedAt

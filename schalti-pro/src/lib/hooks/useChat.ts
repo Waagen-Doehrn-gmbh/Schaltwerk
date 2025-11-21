@@ -21,6 +21,7 @@ export function useChatByProjekt(projektId: string | undefined) {
       })) as ChatMessage[];
     },
     enabled: !!projektId,
+    refetchInterval: 5000, // Polling alle 5 Sekunden für Real-time Updates
   });
 }
 

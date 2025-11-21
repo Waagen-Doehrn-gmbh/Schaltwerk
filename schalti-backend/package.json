@@ -9,13 +9,16 @@
     "start": "node dist/app.js",
     "migrate": "tsx src/migrations/run-migrations.ts",
     "seed": "tsx src/migrations/seed-data.ts",
-    "reset-komponenten": "tsx src/migrations/reset-komponenten.ts"
+    "reset-komponenten": "tsx src/migrations/reset-komponenten.ts",
+    "migrate-old": "tsx src/migrations/migrate-from-old-system.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@types/uuid": "^10.0.0",
     "bcrypt": "^5.1.1",
+    "better-sqlite3": "^11.6.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -23,10 +26,12 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "pg": "^8.11.3",
+    "uuid": "^13.0.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/better-sqlite3": "^7.6.11",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",

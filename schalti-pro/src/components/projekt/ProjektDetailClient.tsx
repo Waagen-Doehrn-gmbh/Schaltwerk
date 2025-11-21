@@ -8,8 +8,8 @@ import { ProtokollForm } from "@/components/protokoll/ProtokollForm";
 import { ActivityList } from "@/components/protokoll/ActivityList";
 import { ComponentsList } from "@/components/komponenten/ComponentsList";
 import { ProjectChat } from "@/components/projekt/ProjectChat";
-import { useMe, useChatByProjekt, useCreateProtokoll, useUpdateKomponente, useUpdateProjekt } from "@/lib/hooks";
-import { komponenteApi } from "@/lib/api";
+import { useMe, useChatByProjekt, useCreateChatMessage, useCreateProtokoll, useUpdateKomponente, useUpdateProjekt } from "@/lib/hooks";
+import { komponenteApi, uploadApi } from "@/lib/api";
 import { formatStunden } from "@/lib/utils";
 import { differenceInDays } from "date-fns";
 import type { Projekt, Arbeitsprotokoll, Komponente, ProtokollFormData } from "@/types";
@@ -51,6 +51,7 @@ export function ProjektDetailClient({
   const createProtokollMutation = useCreateProtokoll();
   const updateKomponenteMutation = useUpdateKomponente();
   const updateProjektMutation = useUpdateProjekt();
+  const createChatMessageMutation = useCreateChatMessage();
 
   // Berechne aktualisierte Stats basierend auf projekt-spezifischen Status
   const aktualisierteStats = useMemo(() => {
@@ -328,9 +329,41 @@ export function ProjektDetailClient({
         projektId={projekt.id}
         messages={chatMessages}
         currentUser={currentUser || undefined}
-        onSendMessage={(text, imageUrl) => {
-          // In a real app, this would send the message to the server
-          console.log("Sending message:", text, imageUrl ? "with image" : "text only");
+        onSendMessage={async (text, imageUrl) => {
+          try {
+            let finalImageUrl: string | undefined = undefined;
+
+            // Wenn ein Bild vorhanden ist (als Data URL), muss es hochgeladen werden
+            if (imageUrl && imageUrl.startsWith("data:")) {
+              try {
+                // Konvertiere Data URL zu File
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                const file = new File([blob], "chat-image.jpg", { type: blob.type });
+
+                // Lade Bild hoch
+                const uploadResult = await uploadApi.uploadChatImage(file);
+                finalImageUrl = uploadResult.url;
+              } catch (uploadError: any) {
+                console.error("Fehler beim Hochladen des Bildes:", uploadError);
+                alert("Fehler beim Hochladen des Bildes: " + (uploadError.message || "Unbekannter Fehler"));
+                return;
+              }
+            } else if (imageUrl) {
+              // Falls bereits eine URL (sollte nicht vorkommen, aber für Sicherheit)
+              finalImageUrl = imageUrl;
+            }
+
+            // Sende Chat-Nachricht
+            await createChatMessageMutation.mutateAsync({
+              text: text || "",
+              projektId: projekt.id,
+              imageUrl: finalImageUrl,
+            });
+          } catch (error: any) {
+            console.error("Fehler beim Senden der Chat-Nachricht:", error);
+            alert("Fehler beim Senden der Nachricht: " + (error.message || "Unbekannter Fehler"));
+          }
         }}
       />
     </div>
