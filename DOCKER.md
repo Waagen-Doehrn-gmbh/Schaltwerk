@@ -30,10 +30,12 @@ Diese Anleitung erklärt, wie Sie das Schalti-Projekt mit Docker starten.
    NODE_ENV=production
 
    # CORS Konfiguration
-   CORS_ORIGIN=http://localhost:7000
+   # Für Server-Deployment: Verwende die Server-IP (z.B. http://192.168.0.199:7000)
+   CORS_ORIGIN=http://192.168.0.199:7000
 
    # Frontend API URL
-   NEXT_PUBLIC_API_URL=http://localhost:7001
+   # Für Server-Deployment: Verwende die Server-IP (z.B. http://192.168.0.199:7001)
+   NEXT_PUBLIC_API_URL=http://192.168.0.199:7001
    ```
 
 2. **Docker Container starten**
@@ -44,9 +46,11 @@ Diese Anleitung erklärt, wie Sie das Schalti-Projekt mit Docker starten.
 
 3. **Services aufrufen**
 
-   - Frontend: http://localhost:7000
-   - Backend API: http://localhost:7001
-   - PostgreSQL: localhost:7002
+   - Frontend: http://192.168.0.199:7000 (oder http://localhost:7000 wenn lokal)
+   - Backend API: http://192.168.0.199:7001 (oder http://localhost:7001 wenn lokal)
+   - PostgreSQL: 192.168.0.199:7002 (nur intern im Docker-Netzwerk)
+   
+   **Hinweis**: Für Server-Deployment siehe [SERVER_DEPLOYMENT.md](./SERVER_DEPLOYMENT.md)
 
 ## Verfügbare Befehle
 

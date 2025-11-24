@@ -28,7 +28,7 @@
     },
     {
       "parameters": {
-        "url": "=http://localhost:7001/api/webhook/protokoll",
+        "url": "=http://192.168.0.199:7001/api/webhook/protokoll",
         "authentication": "none",
         "sendBody": true,
         "bodyParameters": {

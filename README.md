@@ -233,7 +233,16 @@ Die API ist RESTful und verfügbar unter `/api`:
 
 ## 🚢 Deployment
 
-### Production Build
+### Docker Production
+
+```bash
+docker-compose up --build
+```
+
+Siehe [DOCKER.md](./DOCKER.md) für Docker-spezifische Anweisungen.  
+Für Server-Deployment siehe [SERVER_DEPLOYMENT.md](./SERVER_DEPLOYMENT.md).
+
+### Lokaler Production Build
 
 ```bash
 # Backend
@@ -245,12 +254,6 @@ npm start
 cd schalti-pro
 npm run build
 npm start
-```
-
-### Docker Production
-
-```bash
-docker-compose up --build
 ```
 
 ## 📄 Lizenz
