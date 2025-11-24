@@ -293,7 +293,7 @@ export function ProjektDetailClient({
           <ProtokollForm 
             projektId={projekt.id} 
             onSubmit={handleProtokollErstellt}
-            currentUser={currentUser}
+            currentUser={currentUser || undefined}
             protokolle={protokolle}
             komponenten={komponenten}
             onKomponenteAktualisieren={handleKomponenteAbgeschlossen}
