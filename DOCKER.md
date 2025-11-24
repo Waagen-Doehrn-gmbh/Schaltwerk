@@ -17,7 +17,7 @@ Diese Anleitung erklärt, wie Sie das SchaltWerk-Projekt mit Docker starten.
    # Datenbank Konfiguration
    DB_HOST=postgres
    DB_PORT=7002
-   DB_NAME=schalti_pro
+   DB_NAME=schaltwerk_pro
    DB_USER=postgres
    DB_PASSWORD=postgres
 
@@ -92,7 +92,7 @@ docker exec -it schaltwerk-backend sh
 docker exec -it schaltwerk-frontend sh
 
 # PostgreSQL Container
-docker exec -it schaltwerk-postgres psql -U postgres -d schalti_pro
+docker exec -it schaltwerk-postgres psql -U postgres -d schaltwerk_pro
 ```
 
 ## Datenbank-Migrationen

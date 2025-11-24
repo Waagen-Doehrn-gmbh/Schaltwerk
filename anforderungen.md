@@ -25,7 +25,7 @@ Erstelle die komplette Frontend-Anwendung mit folgender Struktur:
 
 1. PROJEKT SETUP
 bash# Diese Commands habe ich bereits ausgeführt:
-npx create-next-app@latest schalti-pro --typescript --tailwind --app
+npx create-next-app@latest schaltwerk-pro --typescript --tailwind --app
 npm install lucide-react date-fns
 npx shadcn-ui@latest init
 npx shadcn-ui@latest add button card input label select textarea badge avatar
@@ -543,7 +543,7 @@ Nach dem Build, teste:
 
 14. DELIVERABLES
 Am Ende sollte ich haben:
-schalti-pro/
+schaltwerk-pro/
 ├── app/
 │   ├── (dashboard)/
 │   │   ├── layout.tsx ✅

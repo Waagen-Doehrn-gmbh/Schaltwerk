@@ -1,7 +1,7 @@
-# Docker Start Script für Schalti (PowerShell)
+# Docker Start Script für Schaltwerk (PowerShell)
 # Dieses Script baut und startet alle Docker Container
 
-Write-Host "🐳 Starte Docker Setup für Schalti..." -ForegroundColor Cyan
+Write-Host "🐳 Starte Docker Setup für Schaltwerk..." -ForegroundColor Cyan
 Write-Host ""
 
 # Prüfe ob Docker läuft

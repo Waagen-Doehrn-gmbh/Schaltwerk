@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-schalti_pro}
+      POSTGRES_DB: ${DB_NAME:-schaltwerk_pro}
     ports:
       - "${DB_PORT:-7002}:5432"
     volumes:
@@ -22,7 +22,7 @@ services:
   # Backend API
   backend:
     build:
-      context: ./schalti-backend
+      context: ./schaltwerk-backend
       dockerfile: Dockerfile
     container_name: schaltwerk-backend
     environment:
@@ -30,7 +30,7 @@ services:
       PORT: 3001
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-schalti_pro}
+      DB_NAME: ${DB_NAME:-schaltwerk_pro}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
@@ -55,7 +55,7 @@ services:
   # Frontend Next.js
   frontend:
     build:
-      context: ./schalti-pro
+      context: ./schaltwerk-pro
       dockerfile: Dockerfile
     container_name: schaltwerk-frontend
     environment:

@@ -15,16 +15,16 @@ Diese Anleitung beschreibt, wie Sie die Anwendung lokal ohne Docker entwickeln k
 
 **Option A: PostgreSQL lokal installiert**
 - Installieren Sie PostgreSQL 16 auf Ihrem System
-- Erstellen Sie eine Datenbank: `schalti_pro`
+- Erstellen Sie eine Datenbank: `schaltwerk_pro`
 - Benutzer: `postgres` (oder eigenen Benutzer erstellen)
 
 **Option B: Nur PostgreSQL in Docker (empfohlen)**
 ```bash
 docker run -d \
-  --name schalti-postgres-local \
+  --name schaltwerk-postgres-local \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=schalti_pro \
+  -e POSTGRES_DB=schaltwerk_pro \
   -p 5432:5432 \
   postgres:16-alpine
 ```
@@ -32,7 +32,7 @@ docker run -d \
 ### 2. Backend Setup
 
 ```bash
-cd schalti-backend
+cd schaltwerk-backend
 
 # Dependencies installieren
 npm install
@@ -55,7 +55,7 @@ Backend läuft auf: `http://localhost:3001`
 ### 3. Frontend Setup
 
 ```bash
-cd schalti-pro
+cd schaltwerk-pro
 
 # Dependencies installieren
 npm install
@@ -73,7 +73,7 @@ Frontend läuft auf: `http://localhost:3000`
 
 ### Backend (.env)
 
-Erstellen Sie `schalti-backend/.env`:
+Erstellen Sie `schaltwerk-backend/.env`:
 
 ```env
 NODE_ENV=development
@@ -82,7 +82,7 @@ PORT=3001
 # Datenbank
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=schalti_pro
+DB_NAME=schaltwerk_pro
 DB_USER=postgres
 DB_PASSWORD=postgres
 
@@ -96,7 +96,7 @@ CORS_ORIGIN=http://localhost:3000
 
 ### Frontend (.env.local)
 
-Erstellen Sie `schalti-pro/.env.local`:
+Erstellen Sie `schaltwerk-pro/.env.local`:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3001
@@ -106,13 +106,13 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 
 ### Backend starten
 ```bash
-cd schalti-backend
+cd schaltwerk-backend
 npm run dev
 ```
 
 ### Frontend starten
 ```bash
-cd schalti-pro
+cd schaltwerk-pro
 npm run dev
 ```
 
@@ -122,25 +122,25 @@ Beide Server unterstützen Hot Reload - Änderungen werden automatisch übernomm
 
 ### Datenbank-Migrationen
 ```bash
-cd schalti-backend
+cd schaltwerk-backend
 npm run migrate
 ```
 
 ### Seed-Daten laden
 ```bash
-cd schalti-backend
+cd schaltwerk-backend
 npm run seed
 ```
 
 ### Backend bauen
 ```bash
-cd schalti-backend
+cd schaltwerk-backend
 npm run build
 ```
 
 ### Frontend bauen
 ```bash
-cd schalti-pro
+cd schaltwerk-pro
 npm run build
 ```
 

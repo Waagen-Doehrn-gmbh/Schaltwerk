@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Docker Start Script für Schalti
+# Docker Start Script für Schaltwerk
 # Dieses Script baut und startet alle Docker Container
 
-echo "🐳 Starte Docker Setup für Schalti..."
+echo "🐳 Starte Docker Setup für Schaltwerk..."
 echo ""
 
 # Prüfe ob Docker läuft

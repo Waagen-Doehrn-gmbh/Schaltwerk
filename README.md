@@ -64,17 +64,17 @@ Siehe [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) für eine detaillierte Anle
 1. **PostgreSQL starten** (Docker):
 ```bash
 docker run -d \
-  --name schalti-postgres-local \
+  --name schaltwerk-postgres-local \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=schalti_pro \
+  -e POSTGRES_DB=schaltwerk_pro \
   -p 5432:5432 \
   postgres:16-alpine
 ```
 
 2. **Backend Setup**:
 ```bash
-cd schalti-backend
+cd schaltwerk-backend
 npm install
 # .env Datei erstellen (siehe LOCAL_DEVELOPMENT.md)
 npm run migrate
@@ -83,7 +83,7 @@ npm run dev
 
 3. **Frontend Setup**:
 ```bash
-cd schalti-pro
+cd schaltwerk-pro
 npm install
 # .env.local Datei erstellen (siehe LOCAL_DEVELOPMENT.md)
 npm run dev
@@ -109,12 +109,12 @@ docker-compose up --build
 
 Nach dem ersten Setup können Sie sich mit folgenden Test-Benutzern anmelden:
 
-| E-Mail | Passwort | Rolle |
-|--------|----------|-------|
-| stefan.haering@schalti.de | password123 | Admin |
-| michael.weber@schalti.de | password123 | Technische Abnahme |
-| thomas.mueller@schalti.de | password123 | Endabnahme |
-| anna.schmidt@schalti.de | password123 | Monteur |
+| Benutzername | Passwort | Rolle |
+|--------------|----------|-------|
+| stefan.haering | password123 | Admin |
+| michael.weber | password123 | Technische Abnahme |
+| thomas.mueller | password123 | Endabnahme |
+| anna.schmidt | password123 | Monteur |
 
 **⚠️ Wichtig**: Ändern Sie die Passwörter in der Produktion!
 
@@ -122,7 +122,7 @@ Nach dem ersten Setup können Sie sich mit folgenden Test-Benutzern anmelden:
 
 ```
 SchaltWerk/
-├── schalti-backend/          # Express Backend API
+├── schaltwerk-backend/          # Express Backend API
 │   ├── src/
 │   │   ├── controllers/      # Request Handler
 │   │   ├── models/           # Datenbank-Models
@@ -133,7 +133,7 @@ SchaltWerk/
 │   │   └── utils/           # Hilfsfunktionen
 │   └── Dockerfile
 │
-├── schalti-pro/              # Next.js Frontend (SchaltWerk)
+├── schaltwerk-pro/              # Next.js Frontend (SchaltWerk)
 │   ├── src/
 │   │   ├── app/              # Next.js App Router
 │   │   ├── components/       # React Components
@@ -181,7 +181,7 @@ SchaltWerk/
 
 **Backend:**
 ```bash
-cd schalti-backend
+cd schaltwerk-backend
 npm run dev          # Development Server
 npm run build        # Production Build
 npm run migrate      # Datenbank-Migrationen
@@ -190,7 +190,7 @@ npm run seed         # Seed-Daten laden
 
 **Frontend:**
 ```bash
-cd schalti-pro
+cd schaltwerk-pro
 npm run dev          # Development Server
 npm run build        # Production Build
 npm run lint         # ESLint
@@ -237,12 +237,12 @@ Die API ist RESTful und verfügbar unter `/api`:
 
 ```bash
 # Backend
-cd schalti-backend
+cd schaltwerk-backend
 npm run build
 npm start
 
 # Frontend
-cd schalti-pro
+cd schaltwerk-pro
 npm run build
 npm start
 ```

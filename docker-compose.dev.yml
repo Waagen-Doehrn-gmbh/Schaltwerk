@@ -2,11 +2,11 @@ services:
   # PostgreSQL Datenbank
   postgres:
     image: postgres:16-alpine
-    container_name: schalti-postgres-dev
+    container_name: schaltwerk-postgres-dev
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-schalti_pro}
+      POSTGRES_DB: ${DB_NAME:-schaltwerk_pro}
     ports:
       - "${DB_PORT:-7002}:5432"
     volumes:
@@ -17,20 +17,20 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - schalti-network
+      - schaltwerk-network
 
   # Backend API (Development)
   backend:
     build:
-      context: ./schalti-backend
+      context: ./schaltwerk-backend
       dockerfile: Dockerfile
-    container_name: schalti-backend-dev
+    container_name: schaltwerk-backend-dev
     environment:
       NODE_ENV: development
       PORT: 3001
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-schalti_pro}
+      DB_NAME: ${DB_NAME:-schaltwerk_pro}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
@@ -40,10 +40,10 @@ services:
       - "7001:3001"
     volumes:
       # Mount Source Code für Hot Reload (ohne :ro für tsx watch)
-      - ./schalti-backend/src:/app/src
-      - ./schalti-backend/package.json:/app/package.json:ro
-      - ./schalti-backend/tsconfig.json:/app/tsconfig.json:ro
-      - ./schalti-backend/package-lock.json:/app/package-lock.json:ro
+      - ./schaltwerk-backend/src:/app/src
+      - ./schaltwerk-backend/package.json:/app/package.json:ro
+      - ./schaltwerk-backend/tsconfig.json:/app/tsconfig.json:ro
+      - ./schaltwerk-backend/package-lock.json:/app/package-lock.json:ro
       # Exclude node_modules und dist
       - /app/node_modules
       - /app/dist
@@ -51,7 +51,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - schalti-network
+      - schaltwerk-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
@@ -64,9 +64,9 @@ services:
   # Frontend Next.js (Development mit Hot Reload)
   frontend:
     build:
-      context: ./schalti-pro
+      context: ./schaltwerk-pro
       dockerfile: Dockerfile.dev
-    container_name: schalti-frontend-dev
+    container_name: schaltwerk-frontend-dev
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://192.168.0.202:7001}
@@ -76,15 +76,15 @@ services:
       - "7000:3000"
     volumes:
       # Mount Source Code für Hot Reload
-      - ./schalti-pro/src:/app/src
-      - ./schalti-pro/public:/app/public
-      - ./schalti-pro/package.json:/app/package.json:ro
-      - ./schalti-pro/package-lock.json:/app/package-lock.json:ro
-      - ./schalti-pro/next.config.ts:/app/next.config.ts:ro
-      - ./schalti-pro/tsconfig.json:/app/tsconfig.json:ro
-      - ./schalti-pro/tailwind.config.ts:/app/tailwind.config.ts:ro
-      - ./schalti-pro/postcss.config.mjs:/app/postcss.config.mjs:ro
-      - ./schalti-pro/.eslintrc.json:/app/.eslintrc.json:ro
+      - ./schaltwerk-pro/src:/app/src
+      - ./schaltwerk-pro/public:/app/public
+      - ./schaltwerk-pro/package.json:/app/package.json:ro
+      - ./schaltwerk-pro/package-lock.json:/app/package-lock.json:ro
+      - ./schaltwerk-pro/next.config.ts:/app/next.config.ts:ro
+      - ./schaltwerk-pro/tsconfig.json:/app/tsconfig.json:ro
+      - ./schaltwerk-pro/tailwind.config.ts:/app/tailwind.config.ts:ro
+      - ./schaltwerk-pro/postcss.config.mjs:/app/postcss.config.mjs:ro
+      - ./schaltwerk-pro/.eslintrc.json:/app/.eslintrc.json:ro
       # Exclude node_modules und .next
       - /app/node_modules
       - /app/.next
@@ -92,12 +92,12 @@ services:
       backend:
         condition: service_healthy
     networks:
-      - schalti-network
+      - schaltwerk-network
     restart: unless-stopped
     command: npm run dev
 
 networks:
-  schalti-network:
+  schaltwerk-network:
     driver: bridge
 
 volumes:
