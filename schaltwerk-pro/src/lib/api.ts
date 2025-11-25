@@ -344,7 +344,17 @@ export const userApi = {
 // Chat API
 export const chatApi = {
   getByProjekt: async (projektId: string) => {
-    return apiRequest<any[]>(`/api/chat/projekt/${projektId}`);
+    return apiRequest<{ messages: any[]; lastReadAt: string | null }>(`/api/chat/projekt/${projektId}`);
+  },
+  markAsRead: async (projektId: string) => {
+    return apiRequest(`/api/chat/projekt/${projektId}/read`, {
+      method: "POST",
+    });
+  },
+  clearAll: async (projektId: string) => {
+    return apiRequest(`/api/chat/projekt/${projektId}/clear`, {
+      method: "DELETE",
+    });
   },
   create: async (data: { text: string; projektId: string; imageUrl?: string }) => {
     return apiRequest("/api/chat", {

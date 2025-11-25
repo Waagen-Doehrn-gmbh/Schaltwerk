@@ -147,6 +147,44 @@ export class ProtokollModel {
     }));
   }
 
+  static async findBySchaltschrankNummer(schaltschrankNummer: string): Promise<ProtokollWithUser[]> {
+    const result = await pool.query(
+      `SELECT p.*, 
+       json_build_object(
+         'id', u.id,
+         'username', u.username,
+         'name', u.name,
+         'initialen', u.initialen,
+         'rolle', u.rolle,
+         'berechtigungen', u.berechtigungen,
+         'avatarUrl', u.avatar_url
+       ) as user
+       FROM protokolle p
+       LEFT JOIN users u ON p.user_id = u.id
+       LEFT JOIN projekte pr ON p.projekt_id = pr.id
+       WHERE pr.schaltschrank_nummer = $1
+       ORDER BY p.datum DESC, p.created_at DESC`,
+      [schaltschrankNummer]
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      aufgabe: row.aufgabe,
+      details: row.details,
+      zeitaufwand: parseFloat(row.zeitaufwand),
+      datum: row.datum,
+      userId: row.user_id,
+      projektId: row.projekt_id,
+      abnahmeStatus: row.abnahme_status,
+      abnahmeTyp: row.abnahme_typ,
+      checklisteStatus: row.checkliste_status,
+      abnahmeCheckliste: row.abnahme_checkliste,
+      abgeschlosseneKomponentenIds: row.abgeschlossene_komponenten_ids,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      user: row.user,
+    }));
+  }
+
   static async create(input: CreateProtokollInput): Promise<Protokoll> {
     const result = await pool.query(
       `INSERT INTO protokolle (

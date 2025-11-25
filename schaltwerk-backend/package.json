@@ -10,7 +10,10 @@
     "migrate": "tsx src/migrations/run-migrations.ts",
     "seed": "tsx src/migrations/seed-data.ts",
     "reset-komponenten": "tsx src/migrations/reset-komponenten.ts",
-    "migrate-old": "tsx src/migrations/migrate-from-old-system.ts"
+    "migrate-old": "tsx src/migrations/migrate-from-old-system.ts",
+    "update-protokoll-users": "tsx src/migrations/update-protokoll-users.ts",
+    "migrate-checklisten": "tsx src/migrations/migrate-checklisten.ts",
+    "remove-duplicate-protokolle": "tsx src/migrations/remove-duplicate-protokolle.ts"
   },
   "keywords": [],
   "author": "",

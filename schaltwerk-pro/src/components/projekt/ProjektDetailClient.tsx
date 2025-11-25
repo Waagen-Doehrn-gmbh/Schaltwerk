@@ -45,7 +45,9 @@ export function ProjektDetailClient({
   }, [initialKomponenten]);
 
   const { data: currentUser } = useMe();
-  const { data: chatMessages = [] } = useChatByProjekt(projekt.id);
+  const { data: chatData } = useChatByProjekt(projekt.id);
+  const chatMessages = chatData?.messages || [];
+  const chatLastReadAt = chatData?.lastReadAt || null;
   
   // Mutations
   const createProtokollMutation = useCreateProtokoll();
@@ -328,6 +330,7 @@ export function ProjektDetailClient({
       <ProjectChat
         projektId={projekt.id}
         messages={chatMessages}
+        lastReadAt={chatLastReadAt}
         currentUser={currentUser || undefined}
         onSendMessage={async (text, imageUrl) => {
           try {

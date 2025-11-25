@@ -45,7 +45,15 @@ export class ProtokollController {
   static async getByProjekt(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { projektId } = req.params;
-      const protokolle = await ProtokollService.getProtokolleByProjekt(projektId);
+      
+      // Versuche zuerst nach Schaltschranknummer zu suchen (für URL-Routing)
+      let protokolle = await ProtokollService.getProtokolleBySchaltschrankNummer(projektId);
+      
+      // Falls nicht gefunden, versuche es als UUID
+      if (protokolle.length === 0) {
+        protokolle = await ProtokollService.getProtokolleByProjekt(projektId);
+      }
+      
       res.json(protokolle);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Fehler beim Abrufen der Protokolle" });

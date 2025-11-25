@@ -21,6 +21,12 @@ export class ProtokollService {
     return ProtokollModel.findByProjekt(projektId);
   }
 
+  static async getProtokolleBySchaltschrankNummer(
+    schaltschrankNummer: string
+  ): Promise<ProtokollWithUser[]> {
+    return ProtokollModel.findBySchaltschrankNummer(schaltschrankNummer);
+  }
+
   static async createProtokoll(
     input: CreateProtokollInput
   ): Promise<Protokoll> {

@@ -18,11 +18,12 @@ export class AuthController {
       const result = await AuthService.login(username, password);
       
       // Set JWT in httpOnly cookie
-      const isProduction = process.env.NODE_ENV === "production";
+      // secure: true nur wenn HTTPS verwendet wird (nicht nur production)
+      const useSecure = process.env.USE_HTTPS === "true" || (process.env.NODE_ENV === "production" && req.secure);
       res.cookie("auth_token", result.token, {
         httpOnly: true,
-        secure: isProduction,
-        sameSite: "strict",
+        secure: useSecure,
+        sameSite: "lax", // lax ist weniger restriktiv als strict und funktioniert besser mit Cross-Origin
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         path: "/",
       });
@@ -45,11 +46,12 @@ export class AuthController {
       const result = await AuthService.register(data);
       
       // Set JWT in httpOnly cookie
-      const isProduction = process.env.NODE_ENV === "production";
+      // secure: true nur wenn HTTPS verwendet wird (nicht nur production)
+      const useSecure = process.env.USE_HTTPS === "true" || (process.env.NODE_ENV === "production" && req.secure);
       res.cookie("auth_token", result.token, {
         httpOnly: true,
-        secure: isProduction,
-        sameSite: "strict",
+        secure: useSecure,
+        sameSite: "lax", // lax ist weniger restriktiv als strict und funktioniert besser mit Cross-Origin
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         path: "/",
       });
@@ -68,10 +70,11 @@ export class AuthController {
   static async logout(req: AuthRequest, res: Response): Promise<void> {
     try {
       // Clear the auth cookie
+      const useSecure = process.env.USE_HTTPS === "true" || (process.env.NODE_ENV === "production" && req.secure);
       res.clearCookie("auth_token", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: useSecure,
+        sameSite: "lax",
         path: "/",
       });
       res.status(200).json({ message: "Erfolgreich abgemeldet" });

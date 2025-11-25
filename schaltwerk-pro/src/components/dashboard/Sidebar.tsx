@@ -120,7 +120,7 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className="px-4 md:px-5 lg:px-5 xl:px-6 py-4 border-t border-slate-800 dark:border-sidebar-border">
-          <p className="text-xs text-slate-500 dark:text-sidebar-foreground/60">SchaltWerk V0.5 pwrd by Döhrn Soft</p>
+          <p className="text-xs text-slate-500 dark:text-sidebar-foreground/60">SchaltWerk V1.0. pwrd by Döhrn Soft</p>
         </div>
       </div>
     </>

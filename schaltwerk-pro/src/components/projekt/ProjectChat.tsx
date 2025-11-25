@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { MessageSquare, X, Send, ChevronUp, ChevronDown, Image as ImageIcon, XCircle } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { MessageSquare, X, Send, ChevronUp, ChevronDown, Image as ImageIcon, XCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,11 +11,13 @@ import type { ChatMessage, User } from "@/types";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { getAvatarUrl, getDisplayName } from "@/lib/utils";
+import { useMarkChatAsRead, useClearChatMessages } from "@/lib/hooks/useChat";
 
 interface ProjectChatProps {
   projektId: string;
   messages: ChatMessage[];
   currentUser?: User;
+  lastReadAt?: Date | null;
   onSendMessage?: (text: string, imageUrl?: string) => void;
 }
 
@@ -23,6 +25,7 @@ export function ProjectChat({
   projektId,
   messages: initialMessages,
   currentUser,
+  lastReadAt: initialLastReadAt,
   onSendMessage,
 }: ProjectChatProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,15 +33,77 @@ export function ProjectChat({
   const [messageText, setMessageText] = useState("");
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>(initialMessages);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [lastOpenedAt, setLastOpenedAt] = useState<Date | null>(null);
+  const [lastReadAt, setLastReadAt] = useState<Date | null>(initialLastReadAt || null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const markAsReadMutation = useMarkChatAsRead();
+  const clearChatMutation = useClearChatMessages();
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Update local messages when initial messages change
+  // WICHTIG: Nur mergen, nie komplett ersetzen, um lokale Nachrichten zu behalten
+  const isInitialMount = useRef(true);
   useEffect(() => {
-    setLocalMessages(initialMessages);
+    // Beim ersten Mount: Setze initiale Nachrichten
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (initialMessages && initialMessages.length > 0) {
+        setLocalMessages(initialMessages);
+      }
+      return;
+    }
+    
+    // Nach dem ersten Mount: MERGE statt REPLACE
+    if (!initialMessages || initialMessages.length === 0) {
+      // Wenn keine initialen Nachrichten, behalte lokale Nachrichten
+      return;
+    }
+    
+    // Merge: Kombiniere lokale und initiale Nachrichten
+    // Entferne Duplikate basierend auf ID
+    const messageMap = new Map<string, ChatMessage>();
+    
+    // Zuerst lokale Nachrichten (haben Priorität für gerade gesendete)
+    localMessages.forEach(msg => {
+      messageMap.set(msg.id, msg);
+    });
+    
+    // Dann initiale Nachrichten (überschreiben nur wenn nicht vorhanden)
+    initialMessages.forEach(msg => {
+      if (!messageMap.has(msg.id)) {
+        messageMap.set(msg.id, msg);
+      }
+    });
+    
+    // Sortiere nach Timestamp
+    const mergedMessages = Array.from(messageMap.values()).sort((a, b) => 
+      a.timestamp.getTime() - b.timestamp.getTime()
+    );
+    
+    // Nur aktualisieren wenn sich wirklich etwas geändert hat
+    const hasChanged = 
+      mergedMessages.length !== localMessages.length ||
+      mergedMessages.some((msg, idx) => {
+        const localMsg = localMessages[idx];
+        return !localMsg || msg.id !== localMsg.id;
+      });
+    
+    if (hasChanged) {
+      setLocalMessages(mergedMessages);
+    }
   }, [initialMessages]);
+
+  // Update lastReadAt when it changes from server (nur wenn es sich wirklich ändert)
+  useEffect(() => {
+    if (initialLastReadAt) {
+      // Nur aktualisieren wenn es sich wirklich geändert hat
+      if (!lastReadAt || initialLastReadAt.getTime() !== lastReadAt.getTime()) {
+        setLastReadAt(initialLastReadAt);
+      }
+    }
+  }, [initialLastReadAt]);
 
   // Default current user (in real app, this would come from auth context)
   const defaultUser: User = {
@@ -52,27 +117,47 @@ export function ProjectChat({
   const user = currentUser || defaultUser;
 
   // Track when chat is opened to mark messages as read
+  const hasMarkedAsReadRef = useRef(false);
   useEffect(() => {
-    if (isOpen && !isMinimized) {
+    if (isOpen && !isMinimized && !hasMarkedAsReadRef.current) {
       // Wenn Chat geöffnet wird, markiere alle aktuellen Nachrichten als gelesen
-      setLastOpenedAt(new Date());
+      const now = new Date();
+      setLastReadAt(now);
+      hasMarkedAsReadRef.current = true;
+      // API-Call, um Nachrichten als gelesen zu markieren (nur einmal beim Öffnen)
+      markAsReadMutation.mutate(projektId);
+    } else if (!isOpen) {
+      // Reset wenn Chat geschlossen wird
+      hasMarkedAsReadRef.current = false;
     }
-  }, [isOpen, isMinimized]);
+  }, [isOpen, isMinimized, projektId]);
   
-  // Wenn Chat geöffnet ist und neue Nachrichten kommen, aktualisiere lastOpenedAt
-  // damit sie sofort als gelesen markiert werden
+  // Wenn Chat geöffnet ist und neue Nachrichten kommen, aktualisiere lastReadAt
+  // damit sie sofort als gelesen markiert werden (aber nicht bei jeder Änderung)
   useEffect(() => {
-    if (isOpen && !isMinimized) {
-      setLastOpenedAt(new Date());
+    if (isOpen && !isMinimized && localMessages.length > 0) {
+      // Prüfe ob es neue Nachrichten gibt, die noch nicht als gelesen markiert sind
+      const hasUnreadMessages = lastReadAt 
+        ? localMessages.some(msg => new Date(msg.timestamp) > lastReadAt && msg.userId !== user.id)
+        : localMessages.some(msg => msg.userId !== user.id);
+      
+      if (hasUnreadMessages) {
+        const now = new Date();
+        setLastReadAt(now);
+        // API-Call, um Nachrichten als gelesen zu markieren (debounced)
+        const timeoutId = setTimeout(() => {
+          markAsReadMutation.mutate(projektId);
+        }, 1000); // 1s Debounce
+        
+        return () => clearTimeout(timeoutId);
+      }
     }
-    // Wenn Chat geschlossen ist, wird lastOpenedAt NICHT aktualisiert,
-    // damit neue Nachrichten als ungelesen gezählt werden
-  }, [localMessages.length, isOpen, isMinimized]);
+  }, [localMessages.length, isOpen, isMinimized, projektId]);
 
-  // Count unread messages (messages after last opened time)
-  const unreadCount = lastOpenedAt
+  // Count unread messages (messages after last read time)
+  const unreadCount = lastReadAt
     ? localMessages.filter(
-        (msg) => msg.timestamp > lastOpenedAt && msg.userId !== user.id
+        (msg) => new Date(msg.timestamp) > lastReadAt && msg.userId !== user.id
       ).length
     : localMessages.filter((msg) => msg.userId !== user.id).length;
 
@@ -143,6 +228,20 @@ export function ProjectChat({
     }
   };
 
+  const handleClearChat = async () => {
+    if (window.confirm("Möchten Sie wirklich alle Chat-Nachrichten für dieses Projekt löschen? Diese Aktion kann nicht rückgängig gemacht werden.")) {
+      try {
+        await clearChatMutation.mutateAsync(projektId);
+        setLocalMessages([]);
+        setShowClearConfirm(false);
+      } catch (error: any) {
+        alert("Fehler beim Löschen der Nachrichten: " + (error.message || "Unbekannter Fehler"));
+      }
+    }
+  };
+
+  const isAdmin = user.rolle === "admin";
+
   return (
     <div className="fixed bottom-4 right-4 z-[100]">
       <input
@@ -180,6 +279,17 @@ export function ProjectChat({
               Projekt Chat
             </CardTitle>
             <div className="flex gap-1">
+              {isAdmin && localMessages.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleClearChat}
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  title="Alle Nachrichten löschen (Admin)"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"

@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { ChatController } from "../controllers/chat.controller";
-import { authMiddleware } from "../middleware/auth.middleware";
+import { authMiddleware, adminMiddleware } from "../middleware/auth.middleware";
 import { validate } from "../middleware/validation.middleware";
 import { createChatMessageSchema } from "../utils/validation.util";
 
 const router = Router();
 
 router.get("/projekt/:projektId", authMiddleware, ChatController.getByProjekt);
+router.post("/projekt/:projektId/read", authMiddleware, ChatController.markAsRead);
+router.delete("/projekt/:projektId/clear", authMiddleware, adminMiddleware, ChatController.clearAllByProjekt);
 router.post(
   "/",
   authMiddleware,

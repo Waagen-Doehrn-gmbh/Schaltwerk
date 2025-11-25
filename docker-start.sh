@@ -24,8 +24,11 @@ if docker compose version &> /dev/null; then
     COMPOSE_CMD="docker compose"
 fi
 
+COMPOSE_FILE="docker-compose.yml"
+COMPOSE_PROJECT="schaltwerk"
+
 echo "📦 Baue Docker Images..."
-$COMPOSE_CMD build --no-cache
+$COMPOSE_CMD -f $COMPOSE_FILE -p $COMPOSE_PROJECT build --no-cache
 
 if [ $? -ne 0 ]; then
     echo "❌ Fehler beim Bauen der Images"
@@ -34,7 +37,7 @@ fi
 
 echo ""
 echo "🚀 Starte Container..."
-$COMPOSE_CMD up -d
+$COMPOSE_CMD -f $COMPOSE_FILE -p $COMPOSE_PROJECT up -d
 
 if [ $? -ne 0 ]; then
     echo "❌ Fehler beim Starten der Container"
@@ -47,7 +50,7 @@ sleep 5
 
 echo ""
 echo "📊 Container Status:"
-$COMPOSE_CMD ps
+$COMPOSE_CMD -f $COMPOSE_FILE -p $COMPOSE_PROJECT ps
 
 echo ""
 echo "✅ Docker Setup abgeschlossen!"
@@ -57,6 +60,6 @@ echo "  - Frontend:  http://localhost:7000"
 echo "  - Backend:   http://localhost:7001"
 echo "  - PostgreSQL: localhost:7002"
 echo ""
-echo "Logs anzeigen mit: $COMPOSE_CMD logs -f"
-echo "Container stoppen mit: $COMPOSE_CMD down"
+echo "Logs anzeigen mit: $COMPOSE_CMD -f $COMPOSE_FILE -p $COMPOSE_PROJECT logs -f"
+echo "Container stoppen mit: $COMPOSE_CMD -f $COMPOSE_FILE -p $COMPOSE_PROJECT down"
 

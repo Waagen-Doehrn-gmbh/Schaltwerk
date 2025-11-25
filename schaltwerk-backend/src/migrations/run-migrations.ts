@@ -11,7 +11,7 @@ const migrations = [
   "005_create_checklisten.sql",
   "006_create_aufgaben.sql",
   "007_create_chat.sql",
-  "008_seed_data.sql",
+  // "008_seed_data.sql", // Deaktiviert - keine Seed-Daten
   "009_alter_komponenten_nullable.sql",
   "010_add_komponenten_ids_to_projekte.sql",
   "011_update_user_roles.sql",
@@ -21,6 +21,7 @@ const migrations = [
   "015_add_komponenten_typ_to_checklisten.sql",
   "016_create_projekt_komponenten.sql",
   "017_fix_checklisten_typ_constraint.sql",
+  "018_create_chat_reads.sql",
 ];
 
 async function runMigrations() {

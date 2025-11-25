@@ -164,7 +164,7 @@ export function AufgabenVerwaltung() {
   if (error) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-red-500">Fehler: {error}</p>
+        <p className="text-red-500 dark:text-red-400">Fehler: {error}</p>
       </div>
     );
   }
@@ -174,8 +174,8 @@ export function AufgabenVerwaltung() {
       {/* Header mit Button */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Aufgaben verwalten</h2>
-          <p className="text-sm text-slate-600 mt-1">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-foreground">Aufgaben verwalten</h2>
+          <p className="text-sm text-slate-600 dark:text-muted-foreground mt-1">
             {aufgaben.length} Aufgabe{aufgaben.length !== 1 ? "n" : ""} vorhanden
           </p>
         </div>
@@ -246,7 +246,7 @@ export function AufgabenVerwaltung() {
                           })}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-muted-foreground">
                         Wählen Sie eine Checkliste, die bei dieser Aufgabe verwendet werden soll.
                       </p>
                       <FormMessage />
@@ -278,7 +278,7 @@ export function AufgabenVerwaltung() {
                           <SelectItem value="admin">Administrator</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-muted-foreground">
                         Mindestens erforderliche Rolle, um ein Protokoll mit dieser Aufgabe zu erstellen. Benutzer mit höheren Rollen haben automatisch Zugriff.
                       </p>
                       <FormMessage />
@@ -286,7 +286,7 @@ export function AufgabenVerwaltung() {
                   )}
                 />
                     {form.formState.errors.root && (
-                      <p className="text-sm text-red-500">{form.formState.errors.root.message}</p>
+                      <p className="text-sm text-red-500 dark:text-red-400">{form.formState.errors.root.message}</p>
                     )}
                 <DialogFooter>
                   <Button
@@ -312,7 +312,7 @@ export function AufgabenVerwaltung() {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-muted-foreground" />
         <Input
           placeholder="Aufgaben durchsuchen..."
           value={searchQuery}
@@ -332,7 +332,7 @@ export function AufgabenVerwaltung() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 mb-2 break-words">{aufgabe.name}</p>
+                      <p className="font-medium text-slate-900 dark:text-foreground mb-2 break-words">{aufgabe.name}</p>
                       <div className="flex flex-wrap items-center gap-2">
                         {checklisteName && (
                           <Badge variant="outline" className="gap-1">
@@ -359,7 +359,7 @@ export function AufgabenVerwaltung() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="gap-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
                         onClick={() => handleDeleteAufgabe(aufgabe)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -374,7 +374,7 @@ export function AufgabenVerwaltung() {
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-slate-500">
+            <p className="text-slate-500 dark:text-muted-foreground">
               {searchQuery ? "Keine Aufgaben gefunden." : "Noch keine Aufgaben vorhanden."}
             </p>
             {!searchQuery && (
