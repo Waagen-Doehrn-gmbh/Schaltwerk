@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,32 @@ import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle2, Image as ImageIcon, X } from "lucide-react";
 import type { AbnahmeChecklisteItem } from "@/types";
 import { cn } from "@/lib/utils";
+
+// Hilfsfunktion zum Rendern von Text mit Zeilenumbrüchen
+// Behandelt sowohl \n (Unix) als auch \r\n (Windows) Zeilenumbrüche
+const renderTextWithLineBreaks = (text: string) => {
+  if (!text) return null;
+  // Normalisiere alle Zeilenumbrüche zu \n
+  const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalizedText.split('\n');
+  
+  // Wenn nur eine Zeile, einfach zurückgeben
+  if (lines.length === 1) {
+    return <>{text}</>;
+  }
+  
+  // Mehrere Zeilen: rendere mit <br />
+  return (
+    <>
+      {lines.map((line, index) => (
+        <React.Fragment key={index}>
+          {line}
+          {index < lines.length - 1 && <br />}
+        </React.Fragment>
+      ))}
+    </>
+  );
+};
 
 interface AbnahmeChecklisteProps {
   checkliste: AbnahmeChecklisteItem[];
@@ -141,10 +167,11 @@ export function AbnahmeCheckliste({
                 <div className="flex-1 min-w-0">
                   <label
                     className={cn(
-                      "cursor-pointer text-sm block",
+                      "cursor-pointer text-sm block whitespace-pre-line",
                       item.checked ? "text-slate-700 line-through" : "text-slate-900"
                     )}
                     onClick={() => handleToggle(item.id)}
+                    style={{ whiteSpace: 'pre-line' }}
                   >
                     {item.text}
                   </label>

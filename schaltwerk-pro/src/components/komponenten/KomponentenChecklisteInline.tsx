@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,32 @@ import type { AbnahmeChecklisteItem, Komponente, Checkliste } from "@/types";
 import { cn } from "@/lib/utils";
 import { useChecklistenOptional } from "@/components/verwaltung/ChecklistenContext";
 import { filterDeletedFallbackChecklisten } from "@/lib/checklisten-fallback";
+
+// Hilfsfunktion zum Rendern von Text mit Zeilenumbrüchen
+// Behandelt sowohl \n (Unix) als auch \r\n (Windows) Zeilenumbrüche
+const renderTextWithLineBreaks = (text: string) => {
+  if (!text) return null;
+  // Normalisiere alle Zeilenumbrüche zu \n
+  const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalizedText.split('\n');
+  
+  // Wenn nur eine Zeile, einfach zurückgeben
+  if (lines.length === 1) {
+    return <>{text}</>;
+  }
+  
+  // Mehrere Zeilen: rendere mit <br />
+  return (
+    <>
+      {lines.map((line, index) => (
+        <React.Fragment key={index}>
+          {line}
+          {index < lines.length - 1 && <br />}
+        </React.Fragment>
+      ))}
+    </>
+  );
+};
 
 interface KomponentenChecklisteInlineProps {
   komponente: Komponente;
@@ -177,10 +203,11 @@ export function KomponentenChecklisteInline({
               />
               <label
                 className={cn(
-                  "flex-1 cursor-pointer text-sm",
+                  "flex-1 cursor-pointer text-sm whitespace-pre-line",
                   item.checked ? "text-slate-600 dark:text-slate-400 line-through" : "text-slate-900 dark:text-foreground"
                 )}
                 onClick={() => handleToggle(item.id)}
+                style={{ whiteSpace: 'pre-line' }}
               >
                 {item.text}
               </label>

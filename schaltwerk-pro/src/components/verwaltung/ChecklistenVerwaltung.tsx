@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -115,9 +115,11 @@ export function ChecklistenVerwaltung() {
     }
 
     // Generiere IDs für Items ohne ID
+    // WICHTIG: Text NICHT trimmen, damit Zeilenumbrüche erhalten bleiben!
+    // trim() würde auch Zeilenumbrüche entfernen, daher verwenden wir den Original-Text
     const itemsWithIds = validItems.map((item, index) => ({
       id: item.id || `item-${Date.now()}-${index}`,
-      text: item.text.trim(),
+      text: item.text, // Original-Text behalten, keine Trim-Operation
     }));
 
     try {
@@ -449,7 +451,7 @@ export function ChecklistenVerwaltung() {
                   {checkliste.items.slice(0, 5).map((item, index) => (
                     <div key={item.id} className="text-sm text-slate-600 flex items-start gap-2">
                       <span className="text-slate-400">{index + 1}.</span>
-                      <span>{item.text}</span>
+                      <span className="whitespace-pre-line" style={{ whiteSpace: 'pre-line' }}>{item.text}</span>
                     </div>
                   ))}
                   {checkliste.items.length > 5 && (

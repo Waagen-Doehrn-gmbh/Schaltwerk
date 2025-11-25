@@ -1,9 +1,36 @@
+import React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import type { Arbeitsprotokoll, Komponente } from "@/types";
 import { formatDate, formatStunden, getAvatarUrl, getDisplayName } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+
+// Hilfsfunktion zum Rendern von Text mit Zeilenumbrüchen
+// Behandelt sowohl \n (Unix) als auch \r\n (Windows) Zeilenumbrüche
+const renderTextWithLineBreaks = (text: string) => {
+  if (!text) return null;
+  // Normalisiere alle Zeilenumbrüche zu \n
+  const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalizedText.split('\n');
+  
+  // Wenn nur eine Zeile, einfach zurückgeben
+  if (lines.length === 1) {
+    return <>{text}</>;
+  }
+  
+  // Mehrere Zeilen: rendere mit <br />
+  return (
+    <>
+      {lines.map((line, index) => (
+        <React.Fragment key={index}>
+          {line}
+          {index < lines.length - 1 && <br />}
+        </React.Fragment>
+      ))}
+    </>
+  );
+};
 
 interface ActivityListProps {
   protokolle: Arbeitsprotokoll[];
@@ -121,7 +148,7 @@ export function ActivityList({ protokolle, komponenten = [] }: ActivityListProps
                             .filter((item) => !item.checked)
                             .map((item) => (
                               <div key={item.id} className="border-l-2 border-red-200 pl-2">
-                                <p className="text-xs font-medium text-red-700">{item.text}</p>
+                                <p className="text-xs font-medium text-red-700 whitespace-pre-line" style={{ whiteSpace: 'pre-line' }}>{item.text}</p>
                                 {/* Bilder für diesen Punkt */}
                                 {item.bilder && item.bilder.length > 0 && (
                                   <div className="mt-1 grid grid-cols-2 sm:grid-cols-3 gap-1.5">
@@ -154,7 +181,7 @@ export function ActivityList({ protokolle, komponenten = [] }: ActivityListProps
                               .filter((item) => item.bilder && item.bilder.length > 0)
                               .map((item) => (
                                 <div key={item.id} className="space-y-1">
-                                  <p className="text-xs text-slate-600 dark:text-muted-foreground font-medium">{item.text}:</p>
+                                  <p className="text-xs text-slate-600 dark:text-muted-foreground font-medium whitespace-pre-line" style={{ whiteSpace: 'pre-line' }}>{item.text}:</p>
                                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                                     {item.bilder!.map((bildUrl, bildIndex) => (
                                       <div key={bildIndex} className="relative">
@@ -190,7 +217,7 @@ export function ActivityList({ protokolle, komponenten = [] }: ActivityListProps
                               variant="outline"
                               className="text-xs bg-white text-blue-700 border-blue-300"
                             >
-                              {komponente ? `${komponente.name} (${komponente.artikelNummer})` : komponenteId}
+                              {komponente ? komponente.name : komponenteId}
                             </Badge>
                           );
                         })}

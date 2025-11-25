@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,8 @@ import type { AbnahmeChecklisteItem, Komponente, Checkliste } from "@/types";
 import { cn } from "@/lib/utils";
 import { useChecklistenOptional } from "@/components/verwaltung/ChecklistenContext";
 import { filterDeletedFallbackChecklisten } from "@/lib/checklisten-fallback";
+
+// Diese Funktion wird nicht mehr verwendet - wir verwenden direkt white-space: pre-line
 
 interface AufgabenChecklisteProps {
   checkliste: AbnahmeChecklisteItem[];
@@ -333,10 +335,11 @@ export function AufgabenCheckliste({
               />
               <label
                 className={cn(
-                  "flex-1 cursor-pointer text-sm",
+                  "flex-1 cursor-pointer text-sm whitespace-pre-line",
                   item.checked ? "text-slate-700 dark:text-muted-foreground line-through" : "text-slate-900 dark:text-foreground"
                 )}
                 onClick={() => onToggle(item.id)}
+                style={{ whiteSpace: 'pre-line' }}
               >
                 {item.text}
               </label>
@@ -376,10 +379,11 @@ export function AufgabenCheckliste({
                       />
                       <label
                         className={cn(
-                          "flex-1 cursor-pointer text-xs",
+                          "flex-1 cursor-pointer text-xs whitespace-pre-line",
                           komponenteItem.checked ? "text-slate-700 dark:text-muted-foreground line-through" : "text-slate-900 dark:text-foreground"
                         )}
                         onClick={() => handleKomponenteToggle(komponenteItem.id)}
+                        style={{ whiteSpace: 'pre-line' }}
                       >
                         {komponenteItem.text}
                       </label>
