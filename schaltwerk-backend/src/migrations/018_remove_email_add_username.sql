@@ -33,3 +33,4 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 -- 8. Optional: Entferne den Index auf email (wird nicht mehr benötigt)
 -- DROP INDEX IF EXISTS idx_users_email;
 
+
