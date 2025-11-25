@@ -38,10 +38,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:7000}
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
     ports:
       - "7001:3001"
     volumes:
       - ./alte_datenbank:/alte_datenbank:ro
+      - backend_uploads:/app/public/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,7 +56,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    command: sh -c "sleep 10 && npx tsx src/migrations/run-migrations.ts && npm start"
+    command: npm start
 
   # Frontend Next.js
   frontend:
@@ -86,4 +88,5 @@ networks:
 
 volumes:
   postgres_data:
+  backend_uploads:
 

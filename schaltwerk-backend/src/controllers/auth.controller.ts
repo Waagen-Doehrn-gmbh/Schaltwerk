@@ -1,4 +1,4 @@
-import { Response } from "express";
+import { Response, Request } from "express";
 import { AuthRequest } from "../middleware/auth.middleware";
 import { AuthService } from "../services/auth.service";
 import { AppError } from "../middleware/error.middleware";
@@ -12,14 +12,15 @@ export class AuthController {
       console.log("Login request headers:", req.headers["content-type"]);
       
       // Body sollte bereits durch validate middleware validiert sein
-      const { username, password } = req.body;
+      const { username, password } = req.body as { username: string; password: string };
       console.log("Attempting login for username:", username);
       
       const result = await AuthService.login(username, password);
       
       // Set JWT in httpOnly cookie
       // secure: true nur wenn HTTPS verwendet wird (nicht nur production)
-      const useSecure = process.env.USE_HTTPS === "true" || (process.env.NODE_ENV === "production" && req.secure);
+      // In Docker/Development mit HTTP: secure = false
+      const useSecure = process.env.USE_HTTPS === "true";
       res.cookie("auth_token", result.token, {
         httpOnly: true,
         secure: useSecure,
@@ -42,12 +43,13 @@ export class AuthController {
 
   static async register(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const data = registerSchema.parse(req.body);
+      const data = registerSchema.parse(req.body as any);
       const result = await AuthService.register(data);
       
       // Set JWT in httpOnly cookie
       // secure: true nur wenn HTTPS verwendet wird (nicht nur production)
-      const useSecure = process.env.USE_HTTPS === "true" || (process.env.NODE_ENV === "production" && req.secure);
+      // In Docker/Development mit HTTP: secure = false
+      const useSecure = process.env.USE_HTTPS === "true";
       res.cookie("auth_token", result.token, {
         httpOnly: true,
         secure: useSecure,
@@ -70,7 +72,7 @@ export class AuthController {
   static async logout(req: AuthRequest, res: Response): Promise<void> {
     try {
       // Clear the auth cookie
-      const useSecure = process.env.USE_HTTPS === "true" || (process.env.NODE_ENV === "production" && req.secure);
+      const useSecure = process.env.USE_HTTPS === "true";
       res.clearCookie("auth_token", {
         httpOnly: true,
         secure: useSecure,
@@ -110,7 +112,7 @@ export class AuthController {
         return;
       }
 
-      const data = updateProfileSchema.parse(req.body);
+      const data = updateProfileSchema.parse(req.body as any);
       const updatedUser = await UserModel.update(req.user.id, data);
       const { passwordHash, ...publicUser } = updatedUser;
       res.json(publicUser);
@@ -134,7 +136,7 @@ export class AuthController {
         return;
       }
 
-      const data = changePasswordSchema.parse(req.body);
+      const data = changePasswordSchema.parse(req.body as any);
       
       // Hole aktuellen Benutzer
       const user = await UserModel.findById(req.user.id);
