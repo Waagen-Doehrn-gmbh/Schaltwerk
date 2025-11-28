@@ -71,7 +71,9 @@ services:
     container_name: schaltwerk-frontend-dev
     environment:
       NODE_ENV: development
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://192.168.0.202:7001}
+      # NEXT_PUBLIC_API_URL wird dynamisch im Code bestimmt basierend auf window.location.hostname
+      # Falls nötig, kann hier eine spezifische URL gesetzt werden
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
       WATCHPACK_POLLING: "true"  # Für Windows File System
       CHOKIDAR_USEPOLLING: "true"  # Für Windows File System
     ports:

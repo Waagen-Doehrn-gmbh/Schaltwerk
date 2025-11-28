@@ -68,8 +68,9 @@ export const createChecklisteSchema = z.object({
     z.object({
       id: z.string(),
       text: z.string(),
-      komponenteId: z.string().uuid().optional(),
-      artikelNummer: z.string().optional(),
+      komponenteId: z.string().uuid().optional(), // Für Rückwärtskompatibilität
+      komponenteIds: z.array(z.string().uuid()).optional(), // Array von Komponenten-IDs
+      artikelNummer: z.string().optional(), // Für Rückwärtskompatibilität
     })
   ),
 });

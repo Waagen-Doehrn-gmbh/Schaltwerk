@@ -249,11 +249,16 @@ export function ProtokollForm({
   const [isAbnahmeAufgabe, setIsAbnahmeAufgabe] = useState(false);
   // Ref zum Abrufen des Status der Komponenten-Checklisten (wird nur beim Submit geprüft)
   const komponentenChecklistenStatusRef = useRef<(() => { vollstaendig: boolean; unvollstaendige: string[] }) | null>(null);
+  // Ref zum Abrufen der gefilterten Checkliste (nur sichtbare Items)
+  const verfuegbareChecklisteRef = useRef<(() => AbnahmeChecklisteItem[]) | null>(null);
 
   // Aktualisiere Checkliste-Status automatisch wenn sich Checkliste ändert
+  // WICHTIG: Verwende nur die sichtbaren Items (gefilterte Checkliste)
   useEffect(() => {
     if (showCheckliste && checkliste.length > 0 && !isAbnahmeAufgabe) {
-      const allChecked = checkliste.every((item) => item.checked);
+      // Verwende gefilterte Checkliste wenn verfügbar, sonst originale Checkliste
+      const zuPruefendeCheckliste = verfuegbareChecklisteRef.current?.() || checkliste;
+      const allChecked = zuPruefendeCheckliste.length > 0 && zuPruefendeCheckliste.every((item) => item.checked);
       const status: "abgeschlossen" | "teilabschluss" = allChecked ? "abgeschlossen" : "teilabschluss";
       form.setValue("checklisteStatus", status, { shouldValidate: false });
     } else if (!showCheckliste || isAbnahmeAufgabe) {
@@ -493,19 +498,28 @@ export function ProtokollForm({
     }
 
     // Prüfe Checkliste-Status für allgemeine Checklisten
+    // WICHTIG: Verwende nur die sichtbaren Items (gefilterte Checkliste)
     let checklisteStatus: "abgeschlossen" | "teilabschluss" | undefined = undefined;
     if (showCheckliste && checkliste.length > 0 && !isAbnahmeAufgabe) {
-      const allChecked = checkliste.every((item) => item.checked);
+      // Verwende gefilterte Checkliste wenn verfügbar, sonst originale Checkliste
+      const zuPruefendeCheckliste = verfuegbareChecklisteRef.current?.() || checkliste;
+      const allChecked = zuPruefendeCheckliste.length > 0 && zuPruefendeCheckliste.every((item) => item.checked);
       checklisteStatus = allChecked ? "abgeschlossen" : "teilabschluss";
     }
 
     // Submit mit Checkliste-Daten
+    // WICHTIG: Speichere nur die gefilterte Checkliste (sichtbare Items)
+    // Items, die aufgrund fehlender Komponenten ausgeblendet wurden, werden nicht gespeichert
+    const zuSpeicherndeCheckliste = showCheckliste && checkliste.length > 0 
+      ? (verfuegbareChecklisteRef.current?.() || checkliste)
+      : undefined;
+
     const submitData: ProtokollFormData = {
       aufgabe: data.aufgabe,
       details: data.details || "",
       zeitaufwand: data.zeitaufwand,
       abnahmeStatus: data.abnahmeStatus,
-      abnahmeCheckliste: showCheckliste && checkliste.length > 0 ? checkliste : undefined,
+      abnahmeCheckliste: zuSpeicherndeCheckliste,
       abnahmeTyp: data.abnahmeTyp,
       checklisteStatus,
       abgeschlosseneKomponentenIds: data.abgeschlosseneKomponentenIds,
@@ -656,13 +670,14 @@ export function ProtokollForm({
                 />
                ) : (
                  <AufgabenCheckliste
-                   checkliste={checkliste}
-                   onChecklisteChange={setCheckliste}
-                   titel={checklisteTitel}
-                   komponenten={komponenten}
-                   onKomponenteAktualisieren={onKomponenteAktualisieren}
-                   getKomponentenChecklistenStatus={komponentenChecklistenStatusRef}
-                 />
+                  checkliste={checkliste}
+                  onChecklisteChange={setCheckliste}
+                  titel={checklisteTitel}
+                  komponenten={komponenten}
+                  onKomponenteAktualisieren={onKomponenteAktualisieren}
+                  getKomponentenChecklistenStatus={komponentenChecklistenStatusRef}
+                  getVerfuegbareCheckliste={verfuegbareChecklisteRef}
+                />
                )}
                {watchedChecklisteStatus && (
                  <div className="mt-3 p-3 rounded-lg border bg-slate-50 dark:bg-muted">

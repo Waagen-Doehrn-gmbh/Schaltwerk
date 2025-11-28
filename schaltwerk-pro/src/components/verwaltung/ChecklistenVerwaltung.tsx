@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,8 +33,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Plus, Edit, Trash2, Search, X } from "lucide-react";
-import { useCreateCheckliste, useUpdateCheckliste, useDeleteCheckliste } from "@/lib/hooks";
+import { useCreateCheckliste, useUpdateCheckliste, useDeleteCheckliste, useKomponenten } from "@/lib/hooks";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useChecklisten as useChecklistenContext } from "@/components/verwaltung/ChecklistenContext";
 import type { Checkliste } from "@/types";
 
@@ -44,6 +45,7 @@ const checklisteSchema = z.object({
   items: z.array(z.object({
     id: z.string().optional(),
     text: z.string(),
+    komponenteIds: z.array(z.string()).optional(),
   })).min(1, "Mindestens ein Item ist erforderlich"),
 });
 
@@ -51,6 +53,7 @@ type ChecklisteFormData = z.infer<typeof checklisteSchema>;
 
 export function ChecklistenVerwaltung() {
   const { checklisten, updateCheckliste, addCheckliste, deleteCheckliste: deleteFromContext, isLoading: contextLoading, refreshChecklisten } = useChecklistenContext();
+  const { data: komponenten = [], isLoading: komponentenLoading } = useKomponenten();
   const createMutation = useCreateCheckliste();
   const updateMutation = useUpdateCheckliste();
   const deleteMutation = useDeleteCheckliste();
@@ -58,13 +61,16 @@ export function ChecklistenVerwaltung() {
   const [editingCheckliste, setEditingCheckliste] = useState<Checkliste | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [typFilter, setTypFilter] = useState<"alle" | "allgemein" | "komponenten">("alle");
+  // State für Komponenten-Autocomplete pro Item
+  const [komponenteSearch, setKomponenteSearch] = useState<Record<number, string>>({});
+  const [showKomponenteSuggestions, setShowKomponenteSuggestions] = useState<Record<number, boolean>>({});
 
   const form = useForm<ChecklisteFormData>({
     resolver: zodResolver(checklisteSchema),
     defaultValues: {
       name: "",
       typ: "allgemein",
-      items: [{ id: "", text: "" }],
+      items: [{ id: "", text: "", komponenteIds: [] }],
     },
   });
 
@@ -80,9 +86,11 @@ export function ChecklistenVerwaltung() {
     form.reset({
       name: "",
       typ: "allgemein",
-      items: [{ id: "", text: "" }],
+      items: [{ id: "", text: "", komponenteIds: [] }],
     });
     setEditingCheckliste(null);
+    setKomponenteSearch({});
+    setShowKomponenteSuggestions({});
     setIsDialogOpen(true);
   };
 
@@ -93,9 +101,24 @@ export function ChecklistenVerwaltung() {
       name: checkliste.name,
       typ: checkliste.typ,
       items: checkliste.items.length > 0 
-        ? checkliste.items.map(item => ({ id: item.id, text: item.text }))
-        : [{ id: "", text: "" }],
+        ? checkliste.items.map(item => {
+            // Rückwärtskompatibilität: konvertiere komponenteId zu komponenteIds Array
+            let komponenteIds: string[] = [];
+            if (item.komponenteIds && Array.isArray(item.komponenteIds)) {
+              komponenteIds = item.komponenteIds;
+            } else if (item.komponenteId) {
+              komponenteIds = [item.komponenteId];
+            }
+            return { 
+              id: item.id, 
+              text: item.text,
+              komponenteIds,
+            };
+          })
+        : [{ id: "", text: "", komponenteIds: [] }],
     });
+    setKomponenteSearch({});
+    setShowKomponenteSuggestions({});
     setIsDialogOpen(true);
   };
 
@@ -120,6 +143,7 @@ export function ChecklistenVerwaltung() {
     const itemsWithIds = validItems.map((item, index) => ({
       id: item.id || `item-${Date.now()}-${index}`,
       text: item.text, // Original-Text behalten, keine Trim-Operation
+      komponenteIds: item.komponenteIds && item.komponenteIds.length > 0 ? item.komponenteIds : undefined,
     }));
 
     try {
@@ -308,7 +332,7 @@ export function ChecklistenVerwaltung() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => append({ id: "", text: "" })}
+                          onClick={() => append({ id: "", text: "", komponenteIds: [] })}
                           className="gap-2"
                           disabled={createMutation.isPending || updateMutation.isPending}
                         >
@@ -316,42 +340,170 @@ export function ChecklistenVerwaltung() {
                           Item hinzufügen
                         </Button>
                       </div>
-                      <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-4">
-                        {fields.map((field, index) => (
-                          <div key={field.id} className="flex items-start gap-2">
-                            <div className="flex-1">
+                      <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4">
+                        {fields.map((field, index) => {
+                          const selectedKomponenteIds = form.watch(`items.${index}.komponenteIds`) || [];
+                          const currentSearch = komponenteSearch[index] || "";
+                          const showSuggestions = showKomponenteSuggestions[index] || false;
+                          
+                          // Filtere Komponenten basierend auf Suche (ohne useMemo, da in map-Funktion)
+                          const filteredKomponenten = (() => {
+                            if (!currentSearch.trim()) return [];
+                            const searchLower = currentSearch.toLowerCase();
+                            return komponenten.filter(
+                              (k) =>
+                                !selectedKomponenteIds.includes(k.id) &&
+                                (k.name.toLowerCase().includes(searchLower) ||
+                                  k.artikelNummer.toLowerCase().includes(searchLower))
+                            ).slice(0, 5); // Maximal 5 Vorschläge
+                          })();
+                          
+                          return (
+                            <div key={field.id} className="space-y-3 p-3 border rounded-lg bg-slate-50">
+                              {/* Komponenten-Autocomplete */}
+                              <div className="relative">
+                                <div className="relative">
+                                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                  <Input
+                                    type="text"
+                                    placeholder="Komponente suchen und auswählen (z.B. Thermostat Kühlen)..."
+                                    value={currentSearch}
+                                    onChange={(e) => {
+                                      setKomponenteSearch({ ...komponenteSearch, [index]: e.target.value });
+                                      setShowKomponenteSuggestions({ ...showKomponenteSuggestions, [index]: true });
+                                    }}
+                                    onFocus={() => setShowKomponenteSuggestions({ ...showKomponenteSuggestions, [index]: true })}
+                                    onBlur={() => setTimeout(() => {
+                                      setShowKomponenteSuggestions({ ...showKomponenteSuggestions, [index]: false });
+                                    }, 200)}
+                                    className="pl-10"
+                                    disabled={createMutation.isPending || updateMutation.isPending || komponentenLoading}
+                                  />
+                                </div>
+                                {showSuggestions && filteredKomponenten.length > 0 && (
+                                  <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                    {filteredKomponenten.map((komponente) => (
+                                              <div
+                                                key={komponente.id}
+                                                className="p-2 hover:bg-slate-50 cursor-pointer border-b last:border-b-0"
+                                                onMouseDown={(e) => {
+                                                  e.preventDefault(); // Verhindert onBlur
+                                                  const currentIds = form.getValues(`items.${index}.komponenteIds`) || [];
+                                                  if (!currentIds.includes(komponente.id)) {
+                                                    // Füge Komponente zu komponenteIds hinzu
+                                                    form.setValue(`items.${index}.komponenteIds`, [...currentIds, komponente.id]);
+                                                    
+                                                    // Füge Komponenten-Namen zum Text hinzu
+                                                    const currentText = form.getValues(`items.${index}.text`) || "";
+                                                    const komponenteText = `1x ${komponente.name}`;
+                                                    
+                                                    // Prüfe ob Komponente bereits im Text vorhanden ist
+                                                    if (!currentText.includes(komponente.name)) {
+                                                      // Füge am Ende hinzu, mit Zeilenumbruch wenn Text bereits vorhanden
+                                                      const newText = currentText.trim() 
+                                                        ? `${currentText.trim()}\n${komponenteText}`
+                                                        : komponenteText;
+                                                      form.setValue(`items.${index}.text`, newText);
+                                                    }
+                                                  }
+                                                  setKomponenteSearch({ ...komponenteSearch, [index]: "" });
+                                                  setShowKomponenteSuggestions({ ...showKomponenteSuggestions, [index]: false });
+                                                }}
+                                              >
+                                        <div className="text-sm font-medium">{komponente.name}</div>
+                                        <div className="text-xs text-slate-500">{komponente.artikelNummer}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-start gap-2">
+                                <div className="flex-1">
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.text`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormControl>
+                                          <Textarea
+                                            {...field}
+                                            placeholder={`Item ${index + 1}...`}
+                                            className="min-h-[60px]"
+                                            disabled={createMutation.isPending || updateMutation.isPending}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                                {fields.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon-sm"
+                                    onClick={() => remove(index)}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 mt-1"
+                                    disabled={createMutation.isPending || updateMutation.isPending}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                              
+                              {/* Ausgewählte Komponenten anzeigen */}
                               <FormField
                                 control={form.control}
-                                name={`items.${index}.text`}
+                                name={`items.${index}.komponenteIds`}
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormControl>
-                                      <Textarea
-                                        {...field}
-                                        placeholder={`Item ${index + 1}...`}
-                                        className="min-h-[60px]"
-                                        disabled={createMutation.isPending || updateMutation.isPending}
-                                      />
-                                    </FormControl>
+                                    <FormLabel className="text-xs">
+                                      Zugeordnete Komponenten {selectedKomponenteIds.length > 0 && `(${selectedKomponenteIds.length})`}
+                                    </FormLabel>
+                                    {selectedKomponenteIds.length > 0 ? (
+                                      <div className="border rounded-lg p-3 bg-white">
+                                        <div className="flex flex-wrap gap-2">
+                                          {selectedKomponenteIds.map((komponenteId) => {
+                                            const komponente = komponenten.find((k) => k.id === komponenteId);
+                                            if (!komponente) return null;
+                                            return (
+                                              <Badge
+                                                key={komponenteId}
+                                                variant="secondary"
+                                                className="flex items-center gap-1 pr-1"
+                                              >
+                                                <span>{komponente.name}</span>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const currentIds = field.value || [];
+                                                    field.onChange(currentIds.filter((id) => id !== komponenteId));
+                                                  }}
+                                                  className="ml-1 hover:bg-slate-200 rounded-full p-0.5"
+                                                >
+                                                  <X className="h-3 w-3" />
+                                                </button>
+                                              </Badge>
+                                            );
+                                          })}
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-2">
+                                          Diese Komponenten werden beim Abhaken automatisch als abgeschlossen markiert (sofern sie im Projekt vorhanden sind).
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-slate-500">
+                                        Keine Komponenten zugeordnet. Verwenden Sie das Suchfeld oben, um Komponenten hinzuzufügen.
+                                      </p>
+                                    )}
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
                             </div>
-                            {fields.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon-sm"
-                                onClick={() => remove(index)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 mt-1"
-                                disabled={createMutation.isPending || updateMutation.isPending}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       <p className="text-xs text-slate-500">
                         {form.watch("items").filter((item) => item.text.trim() !== "").length} Item(s) ausgefüllt

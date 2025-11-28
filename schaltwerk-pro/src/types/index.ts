@@ -74,8 +74,9 @@ export interface AbnahmeChecklisteItem {
   text: string;
   checked: boolean;
   bilder?: string[]; // Optional: Array von Bild-URLs (Data URLs oder Server-URLs)
-  komponenteId?: string; // Optional: ID der zugeordneten Komponente
-  artikelNummer?: string; // Optional: Artikelnummer zur Suche
+  komponenteId?: string; // Optional: ID der zugeordneten Komponente (für Rückwärtskompatibilität)
+  komponenteIds?: string[]; // Optional: IDs der zugeordneten Komponenten
+  artikelNummer?: string; // Optional: Artikelnummer zur Suche (für Rückwärtskompatibilität)
 }
 
 export type AbnahmeStatus = "bestanden" | "verweigert";

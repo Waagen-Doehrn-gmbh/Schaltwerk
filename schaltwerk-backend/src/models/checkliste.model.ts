@@ -3,8 +3,9 @@ import { pool } from "../config/database";
 export interface ChecklisteItem {
   id: string;
   text: string;
-  komponenteId?: string;
-  artikelNummer?: string;
+  komponenteId?: string; // Für Rückwärtskompatibilität
+  komponenteIds?: string[]; // Array von Komponenten-IDs
+  artikelNummer?: string; // Für Rückwärtskompatibilität
 }
 
 export interface Checkliste {

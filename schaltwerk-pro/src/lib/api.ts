@@ -4,18 +4,17 @@ import type { User } from "@/types";
 
 // Dynamische API-URL: Verwende die aktuelle Host-Adresse für Netzwerk-Zugriff
 function getApiUrl(): string {
-  // In der Browser-Umgebung: Verwende die aktuelle Host-Adresse
+  // In der Browser-Umgebung: Verwende immer die aktuelle Host-Adresse
+  // Das ermöglicht Zugriff von verschiedenen IP-Adressen im lokalen Netzwerk
   if (typeof window !== "undefined") {
-    // Verwende Umgebungsvariable wenn verfügbar, sonst aktuelle Host-Adresse
-    if (process.env.NEXT_PUBLIC_API_URL) {
-      return process.env.NEXT_PUBLIC_API_URL;
-    }
     const host = window.location.hostname;
     const port = "7001";
+    // Verwende die gleiche Host-Adresse wie das Frontend, aber mit Backend-Port
     return `http://${host}:${port}`;
   }
-  // Server-seitig: Verwende Umgebungsvariable oder Fallback
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:7001";
+  // Server-seitig (SSR): Verwende Umgebungsvariable oder Fallback
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  return (envUrl && envUrl.trim() !== "") ? envUrl : "http://localhost:7001";
 }
 
 const API_URL = getApiUrl();
