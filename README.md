@@ -274,6 +274,6 @@ Bei Fragen oder Problemen wenden Sie sich bitte an das Entwicklungsteam.
 
 ---
 
-**Version**: 0.1.0  
+**Version**: 1.0.0  
 **Letzte Aktualisierung**: November 2025
 
