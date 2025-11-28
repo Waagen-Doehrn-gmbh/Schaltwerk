@@ -38,6 +38,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:7000,http://192.168.0.202:7000}
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
     ports:
       - "7001:3001"
     volumes:
@@ -46,6 +47,9 @@ services:
       - ./schaltwerk-backend/package.json:/app/package.json:ro
       - ./schaltwerk-backend/tsconfig.json:/app/tsconfig.json:ro
       - ./schaltwerk-backend/package-lock.json:/app/package-lock.json:ro
+      - ./alte_datenbank:/alte_datenbank:ro
+      # Upload-Verzeichnis für persistente Dateien
+      - ./schaltwerk-backend/public/uploads:/app/public/uploads
       # Exclude node_modules und dist
       - /app/node_modules
       - /app/dist
@@ -86,9 +90,9 @@ services:
       - ./schaltwerk-pro/package-lock.json:/app/package-lock.json:ro
       - ./schaltwerk-pro/next.config.ts:/app/next.config.ts:ro
       - ./schaltwerk-pro/tsconfig.json:/app/tsconfig.json:ro
-      - ./schaltwerk-pro/tailwind.config.ts:/app/tailwind.config.ts:ro
       - ./schaltwerk-pro/postcss.config.mjs:/app/postcss.config.mjs:ro
-      - ./schaltwerk-pro/.eslintrc.json:/app/.eslintrc.json:ro
+      - ./schaltwerk-pro/eslint.config.mjs:/app/eslint.config.mjs:ro
+      - ./schaltwerk-pro/components.json:/app/components.json:ro
       # Exclude node_modules und .next
       - /app/node_modules
       - /app/.next

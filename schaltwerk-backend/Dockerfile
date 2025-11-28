@@ -38,8 +38,20 @@ COPY --from=builder --chown=nodejs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nodejs:nodejs /app/src/migrations ./src/migrations
 COPY --from=builder --chown=nodejs:nodejs /app/src/config ./src/config
 COPY --from=builder --chown=nodejs:nodejs /app/tsconfig.json ./tsconfig.json
+# Installiere PostgreSQL Client für pg_isready
+RUN apk add --no-cache postgresql-client
+
+# Kopiere Entrypoint-Script
+COPY --chown=nodejs:nodejs docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+# Erstelle Upload-Verzeichnis
+RUN mkdir -p /app/public/uploads/chat && chown -R nodejs:nodejs /app/public
 
 USER nodejs
+
+# Setze Entrypoint
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 EXPOSE 3001
 

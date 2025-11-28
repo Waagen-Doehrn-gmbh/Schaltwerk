@@ -50,22 +50,56 @@ Diese Anleitung erklärt, wie Sie das SchaltWerk-Projekt mit Docker starten.
 
 ## Verfügbare Befehle
 
-### Container starten
+### Mit Makefile (empfohlen)
+
+Das Projekt enthält ein `Makefile` mit vordefinierten Befehlen:
+
 ```bash
-docker-compose up -d
+# Hilfe anzeigen
+make help
+
+# Production
+make build      # Baue alle Docker-Images
+make up         # Starte alle Container (Production)
+make logs       # Zeige Logs aller Container
+make down       # Stoppe alle Container
+
+# Development
+make dev        # Starte alle Container (Development)
+make dev-logs   # Zeige Development-Logs
+
+# Weitere Befehle
+make rebuild    # Baue Images neu und starte Container
+make clean      # Stoppe Container und entferne Volumes
+make shell-backend   # Öffne Shell im Backend-Container
+make shell-frontend  # Öffne Shell im Frontend-Container
+make shell-db        # Öffne PostgreSQL-Shell
+make migrate     # Führe Datenbank-Migrationen aus
+make seed        # Fülle Datenbank mit Seed-Daten
 ```
 
-### Container stoppen
+### Mit Docker Compose direkt
+
+#### Container starten
+```bash
+# Production
+docker-compose up -d
+
+# Development (mit Hot Reload)
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+#### Container stoppen
 ```bash
 docker-compose down
 ```
 
-### Container stoppen und Volumes löschen
+#### Container stoppen und Volumes löschen
 ```bash
 docker-compose down -v
 ```
 
-### Logs anzeigen
+#### Logs anzeigen
 ```bash
 # Alle Services
 docker-compose logs -f
@@ -77,13 +111,13 @@ docker-compose logs -f backend
 docker-compose logs -f frontend
 ```
 
-### Container neu bauen
+#### Container neu bauen
 ```bash
 docker-compose build --no-cache
 docker-compose up -d
 ```
 
-### In Container einsteigen
+#### In Container einsteigen
 ```bash
 # Backend Container
 docker exec -it schaltwerk-backend sh
@@ -97,13 +131,32 @@ docker exec -it schaltwerk-postgres psql -U postgres -d schaltwerk_pro
 
 ## Datenbank-Migrationen
 
-Die Datenbank-Migrationen werden automatisch beim Start des Backend-Containers ausgeführt.
+Die Datenbank-Migrationen werden automatisch beim Start des Backend-Containers ausgeführt. Das Backend wartet automatisch, bis PostgreSQL bereit ist, bevor die Migrationen ausgeführt werden.
 
 Falls Sie die Migrationen manuell ausführen möchten:
 
 ```bash
+# Mit Makefile
+make migrate
+
+# Oder direkt
 docker exec -it schaltwerk-backend npm run migrate
 ```
+
+## Development vs. Production
+
+### Production (`docker-compose.yml`)
+- Optimierte Multi-Stage Builds
+- Keine Source-Code-Mounts
+- Standalone Next.js Build
+- Automatische Migrationen beim Start
+
+### Development (`docker-compose.dev.yml`)
+- Hot Reload für Backend (tsx watch)
+- Hot Reload für Frontend (Next.js dev)
+- Source-Code-Mounts für Live-Editing
+- Upload-Verzeichnis wird lokal gemountet
+- Polling für Windows File System aktiviert
 
 ## Troubleshooting
 
